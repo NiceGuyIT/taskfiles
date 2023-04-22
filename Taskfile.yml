@@ -1,0 +1,54 @@
+---
+version: "3"
+
+env:
+    # NIX_SYSTEM_BIN_DIR: '/usr/local/bin/'
+    # NIX_USER_BIN_DIR: '{{.HOME}}/bin'
+    # WINDOWS_SYSTEM_BIN_DIR: 'C:\ProgramData\taskfiles\bin'
+    # WINDOWS_USER_BIN_DIR: '{{.USER}}/bin'
+    BIN_DIR:
+        sh: |
+            echo '{{if eq OS "windows" -}}
+                net session
+            {{- else -}}
+                {{if eq .USER "root"}}/usr/local/bin/{{else}}{{.HOME}}/bin/{{end}}
+            {{- end -}}'
+
+tasks:
+
+    init:
+        desc: Download the required utilities for the tasks.
+        vars:
+            REPO: mikefarah/yq
+            NAME: 'yq{{exeExt}}'
+        preconditions:
+            - sh: curl --version
+              msg: |
+                  curl is required to download files. Please install curl and 'task init' again.
+            - sh:
+        cmds:
+            - curl --location --output {{.NAME}} 'https://github.com/{{.REPO}}/releases/latest/download/yq_{{OS}}_{{ARCH}}{{exeExt}}'
+            # Example for executing a command if OS is not windows.
+            # https://taskfile.dev/usage/#gos-template-engine
+            - '{{if ne OS "windows"}}chmod a+x yq{{else}}noop{{end}}'
+            - echo {{.BIN}} has been downloaded to {{.BIN_DIR}}/{{.NAME}}
+
+    init-copy-windows:
+        desc: Copy the files to a Windows location
+        platform: [windows]
+        cmds:
+            - echo 'copy "yq" to the users directory'
+
+    init-copy-nix:
+        desc: Copy the file to the user's home directory
+        platform: [windows]
+        cmds:
+            - echo 'copy "yq" to the users directory'
+
+    test-bin-dir:
+        cmds:
+            - echo {{.BIN_DIR}}
+
+    noop:
+        cmds:
+            - echo
