@@ -1,0 +1,107 @@
+---
+version: "3"
+
+env:
+    BIN_DIR:
+        # BIN_DIR is the directory to hold the binaries. If run as root/administrator, the system directory is used.
+        # Otherwise, the user's bin directory is used.
+        # Task treats environmental variables as case-sensitive while Windows does not.
+        sh: |
+            {{- if eq OS "windows" -}}
+                if net session >/dev/null 2>&1; then
+                    echo '{{.ProgramData}}\taskfiles\bin'
+                else
+                    echo '{{.USERPROFILE}}\bin'
+                fi
+            {{- else -}}
+                echo '{{if eq .USER "root"}}/usr/local/bin{{else}}{{.HOME}}/bin{{end}}'
+            {{- end -}}
+
+tasks:
+
+    init:
+        desc: Download the required utilities for the tasks.
+        vars:
+            REPO: mikefarah/yq
+            NAME: 'yq{{exeExt}}'
+            BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}yq{{exeExt}}'
+        preconditions:
+            - sh: curl --version
+              msg: |
+                  curl is required to download files. Please install curl and 'task init' again.
+        cmds:
+            - task: init-bin-dir
+            - task: init-yq
+
+    init-bin-dir:
+        desc: Initialize the bin directory
+        preconditions:
+            - sh: mkdir --version
+              platforms: [unixOS]
+              msg: |
+                  mkdir is required to create directories. Please install mkdir and 'task init' again.
+        cmds:
+            - echo Creating '{{.BIN_DIR}}'
+            - |
+                {{- if eq OS "windows" -}}
+                    powershell -Command New-Item -Path '{{.BIN_DIR}}' -ItemType Directory
+                {{- else -}}
+                    mkdir --parents '{{.BIN_DIR}}'
+                {{- end -}}
+        status:
+            - test -d '{{.BIN_DIR}}'
+
+    init-yq:
+        desc: Download yq into the bin directory.
+        vars:
+            REPO: mikefarah/yq
+            BASE_NAME: 'yq'
+            NAME: '{{.BASE_NAME}}{{exeExt}}'
+            BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.NAME}}'
+        preconditions:
+            - sh: curl --version
+              platforms: [unixOS]
+              msg: |
+                  curl is required to download files. Please install curl and 'task init' again.
+            - task: init-bin-dir
+        cmds:
+            - curl --location --output '{{.BIN_NAME}}' 'https://github.com/{{.REPO}}/releases/latest/download/{{.BASE_NAME}}_{{OS}}_{{ARCH}}{{exeExt}}'
+            - '{{if ne OS "windows"}}chmod a+x {{.BIN_NAME}}{{end}}'
+            - echo '{{.BASE_NAME}}' has been downloaded to '{{.BIN_NAME}}'
+        status:
+            - '{{.BIN_NAME}} --version'
+
+    init-task:
+        desc: Download task into the bin directory.
+        vars:
+            REPO: go-task/task
+            BASE_NAME: 'task'
+            NAME: '{{.BASE_NAME}}{{exeExt}}'
+            BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.NAME}}'
+            COMPRESS_EXT: '{{if eq OS "windows"}}.zip{{else}}.tar.gz{{end}}'
+        preconditions:
+            - sh: curl --version
+              platforms: [unixOS]
+              msg: |
+                  curl is required to download files. Please install curl and 'task init' again.
+            - sh: tar --version
+              platforms: [unixOS]
+              msg: |
+                  tar is required to extract files from archives. Please install tar and 'task init' again.
+            - sh: gunzip --version
+              platforms: [unixOS]
+              msg: |
+                  gunzip is required to uncompress files. Please install gunzip/gzip and 'task init' again.
+            - task: init-bin-dir
+        cmds:
+            - |
+                {{if eq OS "windows"}}
+                    powershell -Command Write-Output '{{.BIN_DIR}}'
+                {{else}}
+                    curl --location --output - 'https://github.com/{{.REPO}}/releases/latest/download/{{.BASE_NAME}}_{{OS}}_{{ARCH}}{{.COMPRESS_EXT}}' |
+                    tar -C '{{.BIN_DIR}}' -zxf - {{.BASE_NAME}}
+                    chmod a+x {{.BIN_NAME}}
+                {{end}}
+            - echo '{{.BASE_NAME}}' has been downloaded to '{{.BIN_NAME}}'
+        status:
+            - '{{.BIN_NAME}} --version'
