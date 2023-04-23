@@ -32,6 +32,7 @@ tasks:
         cmds:
             - task: init-bin-dir
             - task: init-yq
+            - task: init-task
 
     init-bin-dir:
         desc: Initialize the bin directory
@@ -54,10 +55,12 @@ tasks:
     init-yq:
         desc: Download yq into the bin directory.
         vars:
+            # Order matters!
+            BASE_NAME: yq
             REPO: mikefarah/yq
-            BASE_NAME: 'yq'
             NAME: '{{.BASE_NAME}}{{exeExt}}'
             BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.NAME}}'
+            REPO_URL: 'https://github.com/{{.REPO}}/releases/latest/download/{{.BASE_NAME}}_{{OS}}_{{ARCH}}{{exeExt}}'
         preconditions:
             - sh: curl --version
               platforms: [unixOS]
@@ -65,43 +68,52 @@ tasks:
                   curl is required to download files. Please install curl and 'task init' again.
             - task: init-bin-dir
         cmds:
-            - curl --location --output '{{.BIN_NAME}}' 'https://github.com/{{.REPO}}/releases/latest/download/{{.BASE_NAME}}_{{OS}}_{{ARCH}}{{exeExt}}'
+            - curl --location --output '{{.BIN_NAME}}' '{{.REPO_URL}}'
             - '{{if ne OS "windows"}}chmod a+x {{.BIN_NAME}}{{end}}'
             - echo '{{.BASE_NAME}}' has been downloaded to '{{.BIN_NAME}}'
         status:
-            - '{{.BIN_NAME}} --version'
+            - "'{{.BIN_NAME}}' --version"
 
     init-task:
         desc: Download task into the bin directory.
         vars:
+            # Order matters!
+            BASE_NAME: task
             REPO: go-task/task
-            BASE_NAME: 'task'
             NAME: '{{.BASE_NAME}}{{exeExt}}'
             BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.NAME}}'
             COMPRESS_EXT: '{{if eq OS "windows"}}.zip{{else}}.tar.gz{{end}}'
+            REPO_URL: 'https://github.com/{{.REPO}}/releases/latest/download/{{.BASE_NAME}}_{{OS}}_{{ARCH}}{{.COMPRESS_EXT}}'
         preconditions:
-            - sh: curl --version
-              platforms: [unixOS]
+            - sh: '{{if ne OS "windows"}}curl --version{{end}}'
               msg: |
                   curl is required to download files. Please install curl and 'task init' again.
-            - sh: tar --version
-              platforms: [unixOS]
+            - sh: '{{if ne OS "windows"}}tar --version{{end}}'
               msg: |
                   tar is required to extract files from archives. Please install tar and 'task init' again.
-            - sh: gunzip --version
-              platforms: [unixOS]
+            - sh: '{{if ne OS "windows"}}gunzip --version{{end}}'
               msg: |
                   gunzip is required to uncompress files. Please install gunzip/gzip and 'task init' again.
             - task: init-bin-dir
         cmds:
-            - |
-                {{if eq OS "windows"}}
-                    powershell -Command Write-Output '{{.BIN_DIR}}'
-                {{else}}
-                    curl --location --output - 'https://github.com/{{.REPO}}/releases/latest/download/{{.BASE_NAME}}_{{OS}}_{{ARCH}}{{.COMPRESS_EXT}}' |
-                    tar -C '{{.BIN_DIR}}' -zxf - {{.BASE_NAME}}
-                    chmod a+x {{.BIN_NAME}}
-                {{end}}
+            - cmd: |
+                  {{if eq OS "windows"}}
+                      powershell -Command '
+                          $tmp_file = New-TemporaryFile
+                          Remove-Item -Path $tmp_file
+                          $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
+                          $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.BASE_NAME}}{{.COMPRESS_EXT}}"
+                          $ProgressPreference = "SilentlyContinue"
+                          Invoke-WebRequest -URI "{{.REPO_URL}}" -OutFile $zip_file
+                          Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
+                          Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}") -Destination {{.BIN_DIR}}
+                          Remove-Item -Path $tmp_dir -Recurse
+                      '
+                  {{else}}
+                      curl --location --output - '{{.REPO_URL}}' |
+                      tar -C '{{.BIN_DIR}}' -zxf - {{.BASE_NAME}}
+                      chmod a+x {{.BIN_NAME}}
+                  {{end}}
             - echo '{{.BASE_NAME}}' has been downloaded to '{{.BIN_NAME}}'
         status:
-            - '{{.BIN_NAME}} --version'
+            - "'{{.BIN_NAME}}' --version"
