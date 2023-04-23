@@ -37,8 +37,7 @@ tasks:
     init-bin-dir:
         desc: Initialize the bin directory
         preconditions:
-            - sh: mkdir --version
-              platforms: [unixOS]
+            - sh: '{{if ne OS "windows"}}mkdir --version{{end}}'
               msg: |
                   mkdir is required to create directories. Please install mkdir and 'task init' again.
         cmds:
@@ -63,7 +62,6 @@ tasks:
             REPO_URL: 'https://github.com/{{.REPO}}/releases/latest/download/{{.BASE_NAME}}_{{OS}}_{{ARCH}}{{exeExt}}'
         preconditions:
             - sh: curl --version
-              platforms: [unixOS]
               msg: |
                   curl is required to download files. Please install curl and 'task init' again.
             - task: init-bin-dir

@@ -3,5 +3,10 @@
   <component name="YamllintSettings">
     <enabled>true</enabled>
     <binPath>$USER_HOME$/.local/bin/yamllint</binPath>
+    <disabledRules>
+      <set>
+        <option value="line-length" />
+      </set>
+    </disabledRules>
   </component>
 </project>
