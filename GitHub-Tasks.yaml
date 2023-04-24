@@ -22,6 +22,7 @@ tasks:
           task --silent github:get-attribute "ATTRIBUTE='name'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
       PACKAGE_DIR: '{{trimSuffix .COMPRESS_EXT .PACKAGE_NAME}}'
     preconditions:
+      - task: initialize:all
       - sh: '[ "{{.NAME}}" != "" ]'
       - sh: '[ "{{.OWNER}}" != "" ]'
       - sh: '[ "{{.ASSET_PATTERN}}" != "" ]'
