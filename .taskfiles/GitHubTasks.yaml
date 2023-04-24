@@ -1,0 +1,79 @@
+---
+version: "3"
+
+tasks:
+
+  download:
+    desc: Download a release from GitHub
+    vars:
+      REPO: '{{.OWNER}}/{{.NAME}}'
+      FILE_NAME: '{{.NAME}}{{exeExt}}'
+      BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
+      COMPRESS_EXT: '{{if eq OS "windows"}}.zip{{else}}.tar.gz{{end}}'
+      REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
+      # Some packages use x86_64 instead of amd64
+      DOWNLOAD_URL:
+        # A variable cannot be assigned from a task, only the shell output.
+        # https://github.com/go-task/task/issues/178
+        sh: |
+          task --silent github:get-attribute "ATTRIBUTE='browser_download_url'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
+      PACKAGE_NAME:
+        sh: |
+          task --silent github:get-attribute "ATTRIBUTE='name'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
+      PACKAGE_DIR: '{{trimSuffix .COMPRESS_EXT .PACKAGE_NAME}}'
+    preconditions:
+      - sh: '[ "{{.NAME}}" != "" ]'
+      - sh: '[ "{{.OWNER}}" != "" ]'
+      - sh: '[ "{{.ASSET_PATTERN}}" != "" ]'
+      - sh: '[ "{{.COMPRESS_EXT}}" != "" ]'
+      - sh: '[ "{{.ARCH}}" != "" ]'
+      - sh: '{{if ne OS "windows"}}command -v curl{{end}}'
+        msg: |
+          curl is required to download files. Please install curl and 'task init' again.
+      - sh: '{{if ne OS "windows"}}command -v tar{{end}}'
+        msg: |
+          tar is required to extract files from archives. Please install tar and 'task init' again.
+      - sh: '{{if ne OS "windows"}}command -v gunzip{{end}}'
+        msg: |
+          gunzip is required to uncompress files. Please install gunzip/gzip and 'task init' again.
+      - task: init-bin-dir
+    cmds:
+      - cmd: |
+          {{if eq OS "windows"}}
+            powershell -Command '
+              $tmp_file = New-TemporaryFile
+              Remove-Item -Path $tmp_file
+              $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
+              $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.BASE_NAME}}{{.COMPRESS_EXT}}"
+              $ProgressPreference = "SilentlyContinue"
+              Invoke-WebRequest -URI "{{.REPO_URL}}" -OutFile $zip_file
+              Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
+              Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}") -Destination {{.BIN_DIR}}
+              Remove-Item -Path $tmp_dir -Recurse
+            '
+          {{else}}
+            curl --silent --location --output - '{{.DOWNLOAD_URL}}' |
+            tar --directory '{{.BIN_DIR}}' --strip-components 1 -zxf - '{{.PACKAGE_DIR}}/{{.FILE_NAME}}'
+            chmod a+x '{{.BIN_NAME}}'
+          {{end}}
+    status:
+      - "'{{.BIN_NAME}}' --version"
+
+  get-attribute:
+    desc: Ge an attribute using the GitHub API
+    preconditions:
+      - sh: '[ "{{.REPO_URL}}" != "" ]'
+      - sh: '[ "{{.ASSET_PATTERN}}" != "" ]'
+      - sh: '[ "{{.ATTRIBUTE}}" != "" ]'
+      - sh: '{{if ne OS "windows"}}command -v curl{{end}}'
+      - sh: '{{if ne OS "windows"}}command -v yq{{end}}'
+    cmds:
+      - cmd: |
+          {{if eq OS "windows"}}
+            powershell -Command '
+              Write-Output "FIXME: Not implemented"
+            '
+          {{else}}
+            curl --silent --location --output - '{{.REPO_URL}}' |
+            yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .{{.ATTRIBUTE}}'
+          {{end}}

@@ -17,8 +17,8 @@ env:
           echo '{{if eq .USER "root"}}/usr/local/bin{{else}}{{.HOME}}/bin{{end}}'
       {{- end -}}
 
-#includes:
-#  download: .taskfiles/DownloadTasks.yaml
+includes:
+  github: .taskfiles/GitHubTasks.yaml
 
 tasks:
 
@@ -123,15 +123,22 @@ tasks:
     desc: Download the ghrel binary
     vars:
       NAME: ghrel
-      REPO: 'jreisinger/{{.NAME}}'
+      OWNER: jreisinger
+      REPO: '{{.OWNER}}/{{.NAME}}'
       FILE_NAME: '{{.NAME}}{{exeExt}}'
       BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
       COMPRESS_EXT: '{{if eq OS "windows"}}.zip{{else}}.tar.gz{{end}}'
       REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
+      ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{ARCH}}{{.COMPRESS_EXT}}'
       DOWNLOAD_URL:
         sh: |
-          curl --location --output - '{{.REPO_URL}}' |
-          yq --unwrapScalar '.assets[] | select(.name=="{{.NAME}}_*_{{OS}}_{{ARCH}}{{.COMPRESS_EXT}}") | .browser_download_url'
+          curl --silent --location --output - '{{.REPO_URL}}' |
+          yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .browser_download_url'
+      PACKAGE_NAME:
+        sh: |
+          curl --silent --location --output - '{{.REPO_URL}}' |
+          yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .name'
+      PACKAGE_DIR: '{{trimSuffix .COMPRESS_EXT .PACKAGE_NAME}}'
     preconditions:
       - sh: '{{if ne OS "windows"}}command -v curl{{end}}'
         msg: |
@@ -158,8 +165,8 @@ tasks:
               Remove-Item -Path $tmp_dir -Recurse
             '
           {{else}}
-            curl --location --output - '{{.DOWNLOAD_URL}}' |
-            tar -C '{{.BIN_DIR}}' -zxf - {{.BASE_NAME}}
+            curl --silent --location --output - '{{.DOWNLOAD_URL}}' |
+            tar --directory '{{.BIN_DIR}}' -zxf - {{.FILE_NAME}}
             chmod a+x {{.BIN_NAME}}
           {{end}}
     status:
@@ -219,3 +226,32 @@ tasks:
           {{end}}
     status:
       - "'{{.BIN_NAME}}' --version"
+
+  xh-test:
+    desc: Download the xh binary
+    vars:
+      NAME: xh
+      OWNER: ducaale
+      COMPRESS_EXT: '{{if eq OS "windows"}}.zip{{else}}.tar.gz{{end}}'
+      # Some packages use x86_64 instead of amd64
+      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
+      ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}-*{{.COMPRESS_EXT}}'
+    preconditions:
+      - task: init-bin-dir
+    cmds:
+      # vars are not passed to subtasks automatically.
+      # https://taskfile.dev/usage/#variables
+      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
+      - task: github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ASSET_PATTERN: '{{.ASSET_PATTERN}}',
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          ARCH: '{{.ARCH}}',
+        }
+    status:
+      # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
+      # and once as the user.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - "'{{.NAME}}' --version"
