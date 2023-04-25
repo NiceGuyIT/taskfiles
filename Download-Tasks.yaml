@@ -32,6 +32,7 @@ tasks:
       # TODO: Check for version numbers to see if it needs to be updated.
       - "'{{.NAME}}' --version"
 
+  # FIXME: This needs work because the filename does not match the repo name.
   cfssl-certinfo:
     desc: Download the cfssl-certinfo binary
     vars:
