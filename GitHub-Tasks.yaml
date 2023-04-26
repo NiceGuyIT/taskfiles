@@ -4,12 +4,15 @@ version: "3"
 tasks:
 
   download:
+    internal: true
     desc: Download a release from GitHub
     vars:
-      REPO: '{{.OWNER}}/{{.NAME}}'
+      # Order matters!
+      REPO: '{{.REPO | default (print .OWNER "/" .NAME) }}'
       FILE_NAME: '{{.NAME}}{{exeExt}}'
+      ARCH: '{{if .ARCH}}{{.ARCH}}{{else}}{{ARCH}}{{end}}'
       BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
-      COMPRESS_EXT: '{{if eq OS "windows"}}.zip{{else}}.tar.gz{{end}}'
+      COMPRESS_EXT: '{{if ne (lower .COMPRESS_EXT) "none"}}{{if eq OS "windows"}}.zip{{else}}.tar.gz{{end}}{{end}}'
       REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
       # Some packages use x86_64 instead of amd64
       DOWNLOAD_URL:
@@ -17,17 +20,17 @@ tasks:
         # https://github.com/go-task/task/issues/178
         sh: |
           task --silent github:get-attribute "ATTRIBUTE='browser_download_url'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
+        # echo task --silent github:get-attribute "ATTRIBUTE='browser_download_url'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
       PACKAGE_NAME:
         sh: |
           task --silent github:get-attribute "ATTRIBUTE='name'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
+        # echo task --silent github:get-attribute "ATTRIBUTE='name'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
       PACKAGE_DIR: '{{trimSuffix .COMPRESS_EXT .PACKAGE_NAME}}'
     preconditions:
       - task: initialize:all
       - sh: '[ "{{.NAME}}" != "" ]'
       - sh: '[ "{{.OWNER}}" != "" ]'
       - sh: '[ "{{.ASSET_PATTERN}}" != "" ]'
-      - sh: '[ "{{.COMPRESS_EXT}}" != "" ]'
-      - sh: '[ "{{.ARCH}}" != "" ]'
       - sh: '{{if ne OS "windows"}}command -v curl{{end}}'
         msg: |
           curl is required to download files. Please install curl and 'task init' again.
@@ -39,6 +42,19 @@ tasks:
           gunzip is required to uncompress files. Please install gunzip/gzip and 'task init' again.
       - task: init-bin-dir
     cmds:
+      # Use this for debugging
+      # - cmd: 'echo "NAME: {{.NAME}}"'
+      # - cmd: 'echo "OWNER: {{.OWNER}}"'
+      # - cmd: 'echo "REPO: {{.REPO}}"'
+      # - cmd: 'echo "ARCH: {{.ARCH}}"'
+      # - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
+      # - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
+      # - cmd: 'echo "REPO_URL: {{.REPO_URL}}"'
+      # - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
+      # - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
+      # - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
+      # - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
+
       - cmd: |
           {{if eq OS "windows"}}
             powershell -Command '
@@ -53,15 +69,23 @@ tasks:
               Remove-Item -Path $tmp_dir -Recurse
             '
           {{else}}
-            curl --silent --location --output - '{{.DOWNLOAD_URL}}' |
-            tar --directory '{{.BIN_DIR}}' --strip-components 1 -zxf - '{{.PACKAGE_DIR}}/{{.FILE_NAME}}'
+            {{if .COMPRESS_EXT}}
+              curl --silent --location --output - '{{.DOWNLOAD_URL}}' |
+              tar --directory '{{.BIN_DIR}}' --strip-components 1 -zxf - '{{.PACKAGE_DIR}}/{{.FILE_NAME}}'
+            {{else}}
+              curl --silent --location --output '{{.BIN_NAME}}' '{{.DOWNLOAD_URL}}'
+            {{end}}
             chmod a+x '{{.BIN_NAME}}'
           {{end}}
     status:
       - "'{{.BIN_NAME}}' --version"
 
   get-attribute:
-    desc: Ge an attribute using the GitHub API
+    # get-attribute is an internal task but cannot be declared internal because the download task runs 'task' externally
+    # to assign a variable from a task. As of v3.21.0, a variable cannot be assigned from a task, only the shell output.
+    # https://github.com/go-task/task/issues/178
+    # internal: true
+    desc: Get an attribute using the GitHub API. This task is meant to be called only from github:download.
     preconditions:
       - sh: '[ "{{.REPO_URL}}" != "" ]'
       - sh: '[ "{{.ASSET_PATTERN}}" != "" ]'

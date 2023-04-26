@@ -23,6 +23,9 @@ A collection of task files for use with [task][].
 
 ### *nix (Linux/macOS)
 
+<details>
+  <summary>Install taskfiles on Linux/macOS</summary>
+
 ```bash
 git clone https://github.com/NiceGuyIT/taskfiles
 cd taskfiles
@@ -41,9 +44,14 @@ task init
 rm ./task
 ```
 
+</details>
+
 ### Windows
 
 Note: Installing git is outside the scope.
+
+<details>
+  <summary>Install taskfiles on Windows</summary>
 
 ```PowerShell
 git clone https://github.com/NiceGuyIT/taskfiles
@@ -68,3 +76,35 @@ $task = Join-Path -Path $tmp_dir -ChildPath "task.exe"
 # Cleanup
 Remove-Item -Path $tmp_dir -Recurse
 ```
+
+</details>
+
+## Tasks
+
+### GitHub
+
+#### Download
+
+The `github:download` task will download executables from GitHub repos.
+
+- ENV vars: _Source_; Meaning or explanation.
+- `.NAME`: _Parameter_; Name of the binary to download. Normally this is the repo name.
+- `.OWNER`: _Parameter_; Owner of the repo.
+- `.ASSET_PATTERN`: _Parameter_; Pattern of the filename listed in the release assets.
+- `.COMPRESS_EXT`: _Parameter_, _Generated_; Extension for the compression. Defaults to "tar.gz" on \*nix and "zip" on
+  Windows. Use "None" to indicate there is no compression.
+- `.ARCH`: _Parameter_; Architecture to download. Some releases use "x86_64" instead of "amd64".
+- `.REPO`: _Parameter_, _Generated_; Default to `.NAME/.OWNER` if not provided.
+- `.FILE_NAME`: _Generated_; `.NAME.exeExt`
+- `.BIN_NAME`: _Generated_; `.BIN_DIR/.FILE_NAME`
+- `.REPO_URL`: _Generated_; `https://api.github.com/repos/{{.REPO}}/releases/latest`
+
+## Get Attribute
+
+The `github:get-attribute` task is an internal task that gets attributes from GitHub's API that describe the asset.
+This is used to get the filename and download URL.
+
+- ENV vars: _Source_; Meaning or explanation.
+- `.REPO_URL`: _Parameter_; GitHub API repository URL.
+- `.ASSET_PATTERN`: _Parameter_; Pattern to search for to match an asset.
+- `.ATTRIBUTE`: _Parameter_; Attribute to get.

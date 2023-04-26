@@ -1,9 +1,12 @@
 ---
 version: "3"
 
+includes:
+  github: GitHub-Tasks.yaml
+
 tasks:
 
-  xh-test:
+  test:
     desc: Download the xh binary
     vars:
       NAME: xh
@@ -32,12 +35,13 @@ tasks:
       # TODO: Check for version numbers to see if it needs to be updated.
       - "'{{.NAME}}' --version"
 
-  # FIXME: This needs work because the filename does not match the repo name.
   cfssl-certinfo:
     desc: Download the cfssl-certinfo binary
     vars:
-      NAME: cfssl
+      NAME: cfssl-certinfo
       OWNER: cloudflare
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{.ARCH | default ARCH}}'
     cmds:
       # vars are not passed to subtasks automatically.
       # https://taskfile.dev/usage/#variables
@@ -46,9 +50,10 @@ tasks:
         vars: {
           NAME: '{{.NAME}}',
           OWNER: '{{.OWNER}}',
-          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}',
-          COMPRESS_EXT: '',
-          ARCH: '{{ARCH}}',
+          REPO: 'cloudflare/cfssl',
+          ARCH: '{{.ARCH}}',
+          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{exeExt}}',
+          COMPRESS_EXT: 'None',
         }
     status:
       # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
