@@ -2,6 +2,7 @@
 version: "3"
 
 includes:
+  initialize: Initialize-Tasks.yaml
   github: GitHub-Tasks.yaml
 
 tasks:
@@ -35,6 +36,7 @@ tasks:
       # TODO: Check for version numbers to see if it needs to be updated.
       - "'{{.NAME}}' --version"
 
+  # https://github.com/cloudflare/cfssl
   cfssl-certinfo:
     desc: Download the cfssl-certinfo binary
     vars:
@@ -53,6 +55,53 @@ tasks:
           REPO: 'cloudflare/cfssl',
           ARCH: '{{.ARCH}}',
           ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{exeExt}}',
+          COMPRESS_EXT: 'None',
+        }
+    status:
+      # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
+      # and once as the user.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - "'{{.BIN_DIR}}{{fromSlash \"/\"}}{{.NAME}}' --help"
+
+  # Download the "compose" plugin for docker. This is "docker compose" v2 instead of "docker-compose" v1. Downloads are
+  # supported only for Linux.
+  # https://docs.docker.com/compose/install/
+  # https://github.com/docker/compose
+  docker-compose:
+    desc: Download the "compose" plugin for "docker compose" v2.
+    # TODO: Should other OS's be supported?
+    platforms: [linux, darwin]
+    vars:
+      BIN_DIR_ROOT: '/usr/local/lib/docker/cli-plugins'
+      BIN_DIR_USER: '{{.HOME}}/.docker/cli-plugins'
+      BIN_DIR:
+        sh: |
+          {{- if eq OS "windows" -}}
+            {{fail "Windows is not supported. Install Docker Desktop for 'docker compose'"}}
+          {{- else -}}
+            echo '{{if eq .USER "root" -}} {{.BIN_DIR_ROOT}} {{- else -}} {{.BIN_DIR_USER}} {{- end}}'
+          {{- end -}}
+      NAME: compose
+      OWNER: docker
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
+#      ASSET_PATTERN: '{{.OWNER}}_{{.NAME}}_{{OS}}_{{.ARCH}}{{exeExt}}'
+    cmds:
+      - cmd: 'echo "BIN_DIR_ROOT: {{.BIN_DIR_ROOT}}"'
+      - cmd: 'echo "BIN_DIR_USER: {{.BIN_DIR_USER}}"'
+      - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
+      - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
+      - task: initialize:create-bin-dir
+      # vars are not passed to subtasks automatically.
+      # https://taskfile.dev/usage/#variables
+      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
+      - task: github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          REPO: 'docker/compose',
+          ARCH: '{{.ARCH}}',
+          ASSET_PATTERN: '{{.OWNER}}_{{.NAME}}_{{OS}}_{{.ARCH}}{{exeExt}}',
           COMPRESS_EXT: 'None',
         }
     status:
