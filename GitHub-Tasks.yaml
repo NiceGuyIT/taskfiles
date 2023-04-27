@@ -14,6 +14,7 @@ tasks:
       BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
       COMPRESS_EXT: '{{if ne (lower .COMPRESS_EXT) "none"}}{{if eq OS "windows"}}.zip{{else}}.tar.gz{{end}}{{end}}'
       REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
+      ASSET_DIR: '{{.ASSET_DIR | default false}}'
       # Some packages use x86_64 instead of amd64
       DOWNLOAD_URL:
         # A variable cannot be assigned from a task, only the shell output.
@@ -43,17 +44,17 @@ tasks:
       - task: init-bin-dir
     cmds:
       # Use this for debugging
-      # - cmd: 'echo "NAME: {{.NAME}}"'
-      # - cmd: 'echo "OWNER: {{.OWNER}}"'
-      # - cmd: 'echo "REPO: {{.REPO}}"'
-      # - cmd: 'echo "ARCH: {{.ARCH}}"'
-      # - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
-      # - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
-      # - cmd: 'echo "REPO_URL: {{.REPO_URL}}"'
-      # - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
-      # - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
-      # - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
-      # - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
+      - cmd: 'echo "NAME: {{.NAME}}"'
+      - cmd: 'echo "OWNER: {{.OWNER}}"'
+      - cmd: 'echo "REPO: {{.REPO}}"'
+      - cmd: 'echo "ARCH: {{.ARCH}}"'
+      - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
+      - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
+      - cmd: 'echo "REPO_URL: {{.REPO_URL}}"'
+      - cmd: 'echo "ASSET_DIR: {{.ASSET_DIR}}"'
+      - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
+      - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
+      - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
 
       - cmd: |
           {{if eq OS "windows"}}
@@ -70,10 +71,14 @@ tasks:
             '
           {{else}}
             {{if .COMPRESS_EXT}}
-              xh --body --output - '{{.DOWNLOAD_URL}}' |
-              tar --directory '{{.BIN_DIR}}' --strip-components 1 -zxf - '{{.PACKAGE_DIR}}/{{.FILE_NAME}}'
+              xh --body --follow --stream '{{.DOWNLOAD_URL}}' |
+              {{if ne "false" .ASSET_DIR -}}
+                tar --directory '{{.BIN_DIR}}' --strip-components 1 -zxf - '{{.PACKAGE_DIR}}/{{.FILE_NAME}}'
+              {{- else -}}
+                tar --directory '{{.BIN_DIR}}' -zxf - '{{.FILE_NAME}}'
+              {{- end -}}
             {{else}}
-              xh --body --download --output '{{.BIN_NAME}}' '{{.DOWNLOAD_URL}}'
+              xh --body --download --follow --output '{{.BIN_NAME}}' '{{.DOWNLOAD_URL}}'
             {{end}}
             chmod a+x '{{.BIN_NAME}}'
           {{end}}
