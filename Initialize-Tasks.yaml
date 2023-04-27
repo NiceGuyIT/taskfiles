@@ -41,7 +41,7 @@ tasks:
       REPO: '{{.OWNER}}/{{.NAME}}'
       FILE_NAME: '{{.NAME}}{{exeExt}}'
       BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
-      ASSET_PATTERN: '{{.BASE_NAME}}_{{OS}}_{{ARCH}}{{exeExt}}'
+      ASSET_PATTERN: '{{.NAME}}_{{OS}}_{{ARCH}}{{exeExt}}'
       REPO_URL: 'https://github.com/{{.REPO}}/releases/latest/download/{{.ASSET_PATTERN}}'
     preconditions:
       - sh: command -v curl
