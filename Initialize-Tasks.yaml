@@ -65,7 +65,7 @@ tasks:
       FILE_NAME: '{{.NAME}}{{exeExt}}'
       BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
       COMPRESS_EXT: '{{if eq OS "windows"}}.zip{{else}}.tar.gz{{end}}'
-      ASSET_PATTERN: '{{.BASE_NAME}}_{{OS}}_{{ARCH}}{{.COMPRESS_EXT}}'
+      ASSET_PATTERN: '{{.NAME}}_{{OS}}_{{ARCH}}{{.COMPRESS_EXT}}'
       REPO_URL: 'https://github.com/{{.REPO}}/releases/latest/download/{{.ASSET_PATTERN}}'
     preconditions:
       - sh: '{{if ne OS "windows"}}command -v curl{{end}}'
