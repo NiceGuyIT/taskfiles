@@ -18,6 +18,8 @@ env:
       {{- end -}}
 
 includes:
-  init: Initialize-Tasks.yaml
+  initialize:
+    taskfile: Initialize-Tasks.yaml
+    aliases: [init]
   github: GitHub-Tasks.yaml
   download: Download-Tasks.yaml

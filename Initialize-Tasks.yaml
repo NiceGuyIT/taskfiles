@@ -10,13 +10,16 @@ tasks:
         msg: |
           curl is required to download files. Please install curl and try again.
     cmds:
-      - task: initialize:create-bin-dir
-      - task: initialize:dl-yq
-      - task: initialize:dl-task
-      - task: initialize:dl-xh
+      - task: create-bin-dir
+      - task: dl-yq
+      - task: dl-task
+      - task: dl-xh
 
   create-bin-dir:
     desc: Create the bin directory
+    preconditions:
+      - task: all
+      - sh: '[ "{{.BIN_DIR}}" != "" ]'
     cmds:
       - echo Creating '{{.BIN_DIR}}'
       - |
@@ -28,6 +31,7 @@ tasks:
     status:
       - test -d '{{.BIN_DIR}}'
 
+  # https://github.com/mikefarah/yq
   dl-yq:
     desc: Download 'yq' into the bin directory
     vars:
@@ -50,6 +54,7 @@ tasks:
     status:
       - "'{{.BIN_NAME}}' --version"
 
+  # https://github.com/go-task/task/
   dl-task:
     desc: Download 'task' into the bin directory
     vars:
@@ -95,6 +100,7 @@ tasks:
     status:
       - "'{{.BIN_NAME}}' --version"
 
+  # https://github.com/ducaale/xh
   dl-xh:
     desc: Download 'xh' into the bin directory
     vars:

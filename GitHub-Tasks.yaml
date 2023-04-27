@@ -70,10 +70,10 @@ tasks:
             '
           {{else}}
             {{if .COMPRESS_EXT}}
-              curl --silent --location --output - '{{.DOWNLOAD_URL}}' |
+              xh --body --output - '{{.DOWNLOAD_URL}}' |
               tar --directory '{{.BIN_DIR}}' --strip-components 1 -zxf - '{{.PACKAGE_DIR}}/{{.FILE_NAME}}'
             {{else}}
-              curl --silent --location --output '{{.BIN_NAME}}' '{{.DOWNLOAD_URL}}'
+              xh --body --download --output '{{.BIN_NAME}}' '{{.DOWNLOAD_URL}}'
             {{end}}
             chmod a+x '{{.BIN_NAME}}'
           {{end}}
