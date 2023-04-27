@@ -85,7 +85,7 @@ tasks:
                   $tmp_file = New-TemporaryFile
                   Remove-Item -Path $tmp_file
                   $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
-                  $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.BASE_NAME}}{{.COMPRESS_EXT}}"
+                  $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
                   $ProgressPreference = "SilentlyContinue"
                   Invoke-WebRequest -URI "{{.REPO_URL}}" -OutFile $zip_file
                   Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
@@ -94,7 +94,7 @@ tasks:
               '
           {{else}}
               curl --location --output - '{{.REPO_URL}}' |
-              tar -C '{{.BIN_DIR}}' -zxf - {{.BASE_NAME}}
+              tar -C '{{.BIN_DIR}}' -zxf - {{.NAME}}
               chmod a+x {{.BIN_NAME}}
           {{end}}
     status:
@@ -140,7 +140,7 @@ tasks:
               $tmp_file = New-TemporaryFile
               Remove-Item -Path $tmp_file
               $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
-              $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.BASE_NAME}}{{.COMPRESS_EXT}}"
+              $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
               $ProgressPreference = "SilentlyContinue"
               Invoke-WebRequest -URI "{{.REPO_URL}}" -OutFile $zip_file
               Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
