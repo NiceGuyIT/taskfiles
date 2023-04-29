@@ -4,13 +4,33 @@ A collection of task files for use with [task][].
 
 [task]: https://github.com/go-task/task
 
+## Requirements
+
+The following programs are needed to download and uncompress files.
+
+| OS          | Program    | Purpose                                                   |
+|-------------|------------|-----------------------------------------------------------|
+| Linux/macOS | curl       | Download files from the web                               |
+| Linux/macOS | tar        | Extract '.tar.gz' files                                   |
+| Linux/macOS | gunzip     | gunzip '.tar.gz' files                                    |
+| Linux/macOS | unzip      | unzip '.zip' files                                        |
+| Windows     | PowerShell | 'Invoke-WebRequest' cmdlet to download files from the web |
+| Windows     | PowerShell | 'Expand-Archive' cmdlet to unzip files                    |
+| All         | git        | Required to `git clone` this repo.                        |
+
+Note: [rc-zip][] may be added in the future to allow unzipping from a stream.
+
+[rc-zip]: https://github.com/fasterthanlime/rc-zip
+
 ## Install
 
 1. Clone this repo.
 2. Download [task][] into the current directory.
-3. Run `task init` to create the `bin` directory and download the bare minimum.
-4. Add the `bin` directory to your path. If `task` is run with elevated permissions, the `bin` directory will be a
-   system-side bin directory. If `task` is run by a regular user, the `bin` directory will be in their home directory.
+3. Run `./task init-all` to create the `bin` directory and download the bare minimum.
+4. Add the `bin` directory to your path.
+   - If `task` is run with elevated permissions, the `bin` directory will be a system-side bin directory.
+   - If `task` is run by a regular user, the `bin` directory will be in their home directory.
+   - `export BIN_DIR=.` to use the current directory. `BIN_DIR` can be set to any directory.
 
 | OS      | User                 | `bin` directory              |
 |---------|----------------------|------------------------------|
@@ -85,14 +105,12 @@ Remove-Item -Path $tmp_dir -Recurse
 
 #### Download
 
-The `github:download` task will download executables from GitHub repos.
+The `github:download` task will download executables from GitHub repos. These variables can be input into the `github:download` task.
 
 - ENV vars: _Source_; Meaning or explanation.
 - `.NAME`: _Parameter_; Name of the binary to download. Normally this is the repo name.
 - `.OWNER`: _Parameter_; Owner of the repo.
 - `.ASSET_PATTERN`: _Parameter_; Pattern of the filename listed in the release assets.
-- `.COMPRESS_EXT`: _Parameter_, _Generated_; Extension for the compression. Defaults to "tar.gz" on \*nix and "zip" on
-  Windows. Use "None" to indicate there is no compression.
 - `.ARCH`: _Parameter_; Architecture to download. Some releases use "x86_64" instead of "amd64".
 - `.REPO`: _Parameter_, _Generated_; Default to `.NAME/.OWNER` if not provided.
 - `.FILE_NAME`: _Generated_; `.NAME.exeExt`

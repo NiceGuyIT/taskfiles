@@ -3,9 +3,39 @@ version: "3"
 
 tasks:
 
+  all:
+    desc: Download all binaries
+    cmds:
+      - task: cfssl-certinfo
+      - task: docker-compose
+      - task: lego
+      - task: rclone
+
+  clean:
+    desc: Clean up (remove) downloaded binaries
+    vars:
+      BINARIES: |
+        cfssl-certinfo
+        docker-compose
+        lego
+        rclone
+    preconditions:
+      - sh: '[ "{{.BIN_DIR}}" != "" ]'
+      - sh: 'test -d "{{.BIN_DIR}}"'
+    cmds:
+      - cmd: 'echo BIN_DIR: {{.BIN_DIR}}'
+      - cmd: |
+          {{- range $i, $file := .BINARIES | trim | splitLines -}}
+            {{ $bin := (print $.BIN_DIR "/" $file) | fromSlash }}
+            test -f '{{$bin}}' && echo 'Deleting {{$bin}}' && rm '{{$bin}}'
+          {{- end }}
+          echo 'System cleaned from binary files'
+
   # https://github.com/cloudflare/cfssl
   cfssl-certinfo:
-    desc: Download the cfssl-certinfo binary
+    desc: Download 'cfssl-certinfo' to query certificates
+    deps:
+      - :init-all
     vars:
       NAME: cfssl-certinfo
       OWNER: cloudflare
@@ -35,7 +65,7 @@ tasks:
   # https://docs.docker.com/compose/install/
   # https://github.com/docker/compose
   docker-compose:
-    desc: Download the "compose" plugin for "docker compose" v2.
+    desc: Download the 'compose' plugin for "docker compose" v2.
     # TODO: Should other OS's be supported?
     platforms: [linux, darwin]
     vars:
@@ -54,6 +84,7 @@ tasks:
       ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
       ASSET_PATTERN: '{{.OWNER}}_{{.NAME}}_{{OS}}_{{.ARCH}}{{exeExt}}'
     cmds:
+      - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
       - task: :init-create-bin-dir
         vars: {
           BIN_DIR: '{{.BIN_DIR}}'
@@ -80,7 +111,9 @@ tasks:
   # Download lego, an Let's Encrypt/ACME client.
   # https://github.com/go-acme/lego
   lego:
-    desc: Download lego, an Let's Encrypt/ACME client.
+    desc: Download 'lego', a Let's Encrypt/ACME client.
+    deps:
+      - :init-all
     vars:
       NAME: lego
       OWNER: go-acme
@@ -88,10 +121,10 @@ tasks:
       ARCH: '{{.ARCH | default ARCH}}'
       COMPRESS_EXT: '{{if eq OS "windows"}}.zip{{else}}.tar.gz{{end}}'
     cmds:
-      - task: :init-create-bin-dir
-        vars: {
-          BIN_DIR: '{{.BIN_DIR}}'
-        }
+#      - task: :init-create-bin-dir
+#        vars: {
+#          BIN_DIR: '{{.BIN_DIR}}'
+#        }
       # vars are not passed to subtasks automatically.
       # https://taskfile.dev/usage/#variables
       # https://github.com/go-task/task/issues/888#issuecomment-1273264393
@@ -112,7 +145,7 @@ tasks:
   # Download lego, an Let's Encrypt/ACME client.
   # https://github.com/go-acme/lego
   rclone:
-    desc: Download rclone, rsync for cloud storage.
+    desc: Download 'rclone', rsync for cloud storage.
     vars:
       NAME: rclone
       OWNER: rclone
@@ -129,7 +162,6 @@ tasks:
           NAME: '{{.NAME}}',
           OWNER: '{{.OWNER}}',
           ARCH: '{{.ARCH}}',
-          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
           ASSET_DIR: true,
           ASSET_PATTERN: '{{.NAME}}-*-{{OS}}-{{.ARCH}}{{.COMPRESS_EXT}}',
         }

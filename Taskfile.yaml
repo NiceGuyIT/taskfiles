@@ -27,7 +27,7 @@ tasks:
     preconditions:
       - sh: command -v curl
         msg: |
-          curl is required to download files. Please install curl and try again.
+          curl is required to download files. Please install 'curl' and try again.
     cmds:
       - task: init-create-bin-dir
       - task: init-dl-yq
@@ -36,8 +36,8 @@ tasks:
 
   init-create-bin-dir:
     desc: Create the bin directory
+    run: once
     preconditions:
-      - task: all
       - sh: '[ "{{.BIN_DIR}}" != "" ]'
     cmds:
       - echo Creating '{{.BIN_DIR}}'
@@ -53,6 +53,8 @@ tasks:
   # https://github.com/mikefarah/yq
   init-dl-yq:
     desc: Download 'yq' into the bin directory
+    deps:
+      - init-create-bin-dir
     vars:
       # Order matters!
       NAME: yq
@@ -65,7 +67,7 @@ tasks:
     preconditions:
       - sh: command -v curl
         msg: |
-          curl is required to download files. Please install curl and try again.
+          curl is required to download files. Please install 'curl' and try again.
       - task: init-bin-dir
     cmds:
       - curl --silent --location --output '{{.BIN_NAME}}' '{{.REPO_URL}}'
@@ -76,6 +78,8 @@ tasks:
   # https://github.com/go-task/task/
   init-dl-task:
     desc: Download 'task' into the bin directory
+    deps:
+      - init-create-bin-dir
     vars:
       # Order matters!
       NAME: task
@@ -89,13 +93,13 @@ tasks:
     preconditions:
       - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
         msg: |
-          curl is required to download files. Please install curl and try again.
+          curl is required to download files. Please install 'curl' and try again.
       - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
         msg: |
-          tar is required to extract files from archives. Please install tar and try again.
+          tar is required to extract files from archives. Please install 'tar' and try again.
       - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
         msg: |
-          gunzip is required to uncompress files. Please install gunzip/gzip and try again.
+          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
       - task: init-bin-dir
     cmds:
       - cmd: |
@@ -120,8 +124,11 @@ tasks:
       - "'{{.BIN_NAME}}' --version"
 
   # https://github.com/ducaale/xh
-  dl-xh:
+  init-dl-xh:
     desc: Download 'xh' into the bin directory
+    deps:
+      - init-create-bin-dir
+      - init-dl-yq
     vars:
       NAME: xh
       OWNER: ducaale
@@ -144,13 +151,13 @@ tasks:
     preconditions:
       - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
         msg: |
-          curl is required to download files. Please install curl and 'task init' again.
+          curl is required to download files. Please install 'curl' and try again.
       - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
         msg: |
-          tar is required to extract files from archives. Please install tar and 'task init' again.
+          tar is required to extract files from archives. Please install 'tar' and try again.
       - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
         msg: |
-          gunzip is required to uncompress files. Please install gunzip/gzip and 'task init' again.
+          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
       - task: init-bin-dir
     cmds:
       - cmd: |
@@ -188,9 +195,9 @@ tasks:
       FILE_NAME: '{{.NAME}}{{exeExt}}'
       ARCH: '{{ if .ARCH}}{{.ARCH}}{{ else }}{{ARCH}}{{ end }}'
       BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
-      COMPRESS_EXT: '{{ if ne (lower .COMPRESS_EXT) "none"}}{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}{{ end }}'
       REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
-      ASSET_DIR: '{{.ASSET_DIR | default false}}'
+      # Go templates {{ and }} have to be quoted in yaml, forcing the value to be interpreted as a string.
+      ASSET_DIR: '{{ if eq .ASSET_DIR "true" }}true{{ end }}'
       # Some packages use x86_64 instead of amd64
       DOWNLOAD_URL:
         # A variable cannot be assigned from a task, only the shell output.
@@ -202,12 +209,72 @@ tasks:
         sh: |
           task --silent github-get-attribute "ATTRIBUTE='name'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
       #         echo task --silent github-get-attribute "ATTRIBUTE='name'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
+      COMPRESS_EXT: '{{ if (hasSuffix ".zip" .PACKAGE_NAME) }}.zip{{ else if (hasSuffix ".tar.gz" .PACKAGE_NAME) }}.tar.gz{{ end }}'
       PACKAGE_DIR: '{{ trimSuffix .COMPRESS_EXT .PACKAGE_NAME }}'
     preconditions:
-      - task: initialize:all
+      - task: init-all
       - sh: '[ "{{.NAME}}" != "" ]'
+        msg: '.NAME is not defined'
       - sh: '[ "{{.OWNER}}" != "" ]'
+        msg: '.OWNER is not defined'
       - sh: '[ "{{.ASSET_PATTERN}}" != "" ]'
+        msg: '.ASSET_PATTERN is not defined'
+      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
+        msg: |
+          curl is required to download files. Please install 'curl' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
+        msg: |
+          tar is required to extract files from archives. Please install 'tar' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
+        msg: |
+          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v unzip{{ end }}'
+        msg: |
+          unzip is required to uncompress files. Please install 'unzip'/'zip' and try again.
+    cmds:
+      # Use this for debugging
+      # - cmd: 'echo "NAME: {{.NAME}}"'
+      # - cmd: 'echo "OWNER: {{.OWNER}}"'
+      # - cmd: 'echo "REPO: {{.REPO}}"'
+      # - cmd: 'echo "ARCH: {{.ARCH}}"'
+      # - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
+      # - cmd: 'echo "REPO_URL: {{.REPO_URL}}"'
+      # - cmd: 'echo "ASSET_DIR: {{.ASSET_DIR}}"'
+      # - cmd: 'echo "ASSET_DIR boolean: {{ if .ASSET_DIR }}true{{ else }}false{{ end }}"'
+      # - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
+      # - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
+      # - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
+      # - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
+      - task: github-download-asset
+        vars: {
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          PACKAGE_NAME: '{{.PACKAGE_NAME}}',
+          DOWNLOAD_URL: '{{.DOWNLOAD_URL}}',
+          ASSET_DIR: '{{.ASSET_DIR}}',
+          PACKAGE_DIR: '{{.PACKAGE_DIR}}',
+          FILE_NAME: '{{.FILE_NAME}}',
+          BIN_NAME: '{{.BIN_NAME}}',
+          BIN_DIR: '{{.BIN_DIR}}',
+        }
+    status:
+      - "'{{.BIN_NAME}}' --version"
+
+  github-download-asset:
+    desc: Download an asset from GitHub
+    preconditions:
+      - task: init-all
+      - sh: '[ "{{.PACKAGE_NAME}}" != "" ]'
+        msg: '.PACKAGE_NAME is not defined'
+      - sh: '[ "{{.PACKAGE_DIR}}" != "" ]'
+        msg: '.PACKAGE_DIR is not defined'
+      - sh: '[ "{{.DOWNLOAD_URL}}" != "" ]'
+        msg: '.DOWNLOAD_URL is not defined'
+      - sh: '[ "{{.FILE_NAME}}" != "" ]'
+        msg: '.FILE_NAME is not defined'
+      - sh: '[ "{{.BIN_NAME}}" != "" ]'
+        msg: '.BIN_NAME is not defined'
+      - sh: 'test -d "{{.BIN_DIR}}"'
+        msg: '{{.BIN_DIR}} does not exist'
       - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
         msg: |
           curl is required to download files. Please install curl and 'task init' again.
@@ -220,21 +287,17 @@ tasks:
       - sh: '{{ if ne OS "windows"}}command -v unzip{{ end }}'
         msg: |
           unzip is required to uncompress files. Please install unzip/zip and try again.
-      - task: init-bin-dir
     cmds:
       # Use this for debugging
-      - cmd: 'echo "NAME: {{.NAME}}"'
-      - cmd: 'echo "OWNER: {{.OWNER}}"'
-      - cmd: 'echo "REPO: {{.REPO}}"'
-      - cmd: 'echo "ARCH: {{.ARCH}}"'
       - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
-      - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
-      - cmd: 'echo "REPO_URL: {{.REPO_URL}}"'
-      - cmd: 'echo "ASSET_DIR: {{.ASSET_DIR}}"'
-      - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
       - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
       - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
-
+      - cmd: 'echo "ASSET_DIR: {{.ASSET_DIR}}"'
+      - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
+      - cmd: 'echo "FILE_NAME: {{.FILE_NAME}}"'
+      - cmd: 'echo "BIN_NAME: {{.BIN_NAME}}"'
+      - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
+      - cmd: 'echo "ASSET_DIR boolean: {{ if .ASSET_DIR }}true{{ else }}false{{ end }}"'
       - cmd: |
           {{ if eq OS "windows" }}
             powershell -Command '
@@ -249,24 +312,23 @@ tasks:
               Remove-Item -Path $tmp_dir -Recurse
             '
           {{ else }}
-            {{ if .COMPRESS_EXT }}
+            {{ if eq .COMPRESS_EXT ".zip" }}
+              tmp_dir=$(mktemp --directory)
+              xh --body --follow --output "$tmp_dir{{fromSlash "/"}}{{.PACKAGE_NAME}}" '{{.DOWNLOAD_URL}}'
+              unzip -p "$tmp_dir{{fromSlash "/"}}{{.PACKAGE_NAME}}" '{{ if .ASSET_DIR -}}{{.PACKAGE_DIR}}/{{ end }}{{.FILE_NAME}}' > {{.BIN_NAME}}
+              rm -r "$tmp_dir"
+            {{ else if eq .COMPRESS_EXT ".tar.gz" }}
               xh --body --follow --stream '{{.DOWNLOAD_URL}}' |
-              {{ if eq .COMPRESS_EXT ".zip" }}
-                unzip -p - '{{ if ne "false" .ASSET_DIR -}}{{.PACKAGE_DIR}}/{{ end }}{{.FILE_NAME}}' > {{.BIN_NAME}}
-              {{ else }}
-                {{ if ne "false" .ASSET_DIR -}}
-                    tar --directory '{{.BIN_DIR}}' --strip-components 1 -zxf - '{{.PACKAGE_DIR}}/{{.FILE_NAME}}'
-                {{- else -}}
-                    tar --directory '{{.BIN_DIR}}' -zxf - '{{.FILE_NAME}}'
-                {{- end -}}
+              {{ if .ASSET_DIR -}}
+                tar --directory '{{.BIN_DIR}}' -zxf - --strip-components 1 '{{.PACKAGE_DIR}}/{{.FILE_NAME}}'
+              {{- else -}}
+                tar --directory '{{.BIN_DIR}}' -zxf - '{{.FILE_NAME}}'
               {{- end -}}
             {{ else }}
               xh --body --download --follow --output '{{.BIN_NAME}}' '{{.DOWNLOAD_URL}}'
             {{ end }}
             chmod a+x '{{.BIN_NAME}}'
           {{ end }}
-    status:
-      - "'{{.BIN_NAME}}' --version"
 
   github-get-attribute:
     # github-get-attribute is an internal task but cannot be declared internal because the download task runs 'task' externally
