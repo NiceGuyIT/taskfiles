@@ -36,11 +36,10 @@ tasks:
 
   init-create-bin-dir:
     desc: Create the bin directory
-    run: once
     preconditions:
       - sh: '[ "{{.BIN_DIR}}" != "" ]'
+        msg: '.BIN_DIR is not defined'
     cmds:
-      - echo Creating '{{.BIN_DIR}}'
       - |
         {{- if eq OS "windows" -}}
             powershell -Command New-Item -Path '{{.BIN_DIR}}' -ItemType Directory
@@ -50,8 +49,8 @@ tasks:
     status:
       - test -d '{{.BIN_DIR}}'
 
-  # https://github.com/mikefarah/yq
   init-dl-yq:
+    # https://github.com/mikefarah/yq
     desc: Download 'yq' into the bin directory
     deps:
       - init-create-bin-dir
@@ -75,8 +74,8 @@ tasks:
     status:
       - "'{{.BIN_NAME}}' --version"
 
-  # https://github.com/go-task/task/
   init-dl-task:
+    # https://github.com/go-task/task/
     desc: Download 'task' into the bin directory
     deps:
       - init-create-bin-dir
@@ -123,8 +122,8 @@ tasks:
     status:
       - "'{{.BIN_NAME}}' --version"
 
-  # https://github.com/ducaale/xh
   init-dl-xh:
+    # https://github.com/ducaale/xh
     desc: Download 'xh' into the bin directory
     deps:
       - init-create-bin-dir
@@ -192,7 +191,7 @@ tasks:
     vars:
       # Order matters!
       REPO: '{{.REPO | default (print .OWNER "/" .NAME) }}'
-      FILE_NAME: '{{.NAME}}{{exeExt}}'
+      FILE_NAME: '{{.FILE_NAME | default (print .NAME exeExt) }}'
       ARCH: '{{ if .ARCH}}{{.ARCH}}{{ else }}{{ARCH}}{{ end }}'
       BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
       REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
@@ -329,6 +328,7 @@ tasks:
             {{ end }}
             chmod a+x '{{.BIN_NAME}}'
           {{ end }}
+
 
   github-get-attribute:
     # github-get-attribute is an internal task but cannot be declared internal because the download task runs 'task' externally

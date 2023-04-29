@@ -28,9 +28,9 @@ Note: [rc-zip][] may be added in the future to allow unzipping from a stream.
 2. Download [task][] into the current directory.
 3. Run `./task init-all` to create the `bin` directory and download the bare minimum.
 4. Add the `bin` directory to your path.
-   - If `task` is run with elevated permissions, the `bin` directory will be a system-side bin directory.
-   - If `task` is run by a regular user, the `bin` directory will be in their home directory.
-   - `export BIN_DIR=.` to use the current directory. `BIN_DIR` can be set to any directory.
+    - If `task` is run with elevated permissions, the `bin` directory will be a system-side bin directory.
+    - If `task` is run by a regular user, the `bin` directory will be in their home directory.
+    - `export BIN_DIR=.` to use the current directory. `BIN_DIR` can be set to any directory.
 
 | OS      | User                 | `bin` directory              |
 |---------|----------------------|------------------------------|
@@ -101,25 +101,42 @@ Remove-Item -Path $tmp_dir -Recurse
 
 ## Tasks
 
-### GitHub
+### GitHub Download
 
-#### Download
-
-The `github:download` task will download executables from GitHub repos. These variables can be input into the `github:download` task.
+The `github-download` task will download executables from GitHub repos. These variables can be input into
+the `github-download` task.
 
 - ENV vars: _Source_; Meaning or explanation.
 - `.NAME`: _Parameter_; Name of the binary to download. Normally this is the repo name.
 - `.OWNER`: _Parameter_; Owner of the repo.
-- `.ASSET_PATTERN`: _Parameter_; Pattern of the filename listed in the release assets.
+- `.ASSET_PATTERN`: _Parameter_; Pattern of the filename listed in the release assets. If an asset has a
+  COMPRESS_EXT, `.tar.gz` for example, append `*` to the end to match all extensions. As long as the ASSET_PATTERN is
+  unique, only 1 attribute will be returned and the COMPRESS_EXT will be extracted from the asset name.
 - `.ARCH`: _Parameter_; Architecture to download. Some releases use "x86_64" instead of "amd64".
 - `.REPO`: _Parameter_, _Generated_; Default to `.NAME/.OWNER` if not provided.
-- `.FILE_NAME`: _Generated_; `.NAME.exeExt`
+- `.FILE_NAME`: _Parameter_, _Generated_; Default to `.NAME.exeExt` if not provided. Use this if the binary is not the
+  same as the NAME.
 - `.BIN_NAME`: _Generated_; `.BIN_DIR/.FILE_NAME`
 - `.REPO_URL`: _Generated_; `https://api.github.com/repos/{{.REPO}}/releases/latest`
 
-## Get Attribute
+### GitHub Download Asset
 
-The `github:get-attribute` task is an internal task that gets attributes from GitHub's API that describe the asset.
+The `github-download-asset` task is an internal task that will download a release, uncompress if necessary, and save the
+binary in `.BIN_NAME`.
+
+- ENV vars: _Source_; Meaning or explanation.
+- `.PACKAGE_NAME`: _Parameter_; Package name as extracted from the API.
+- `.COMPRESS_EXT`: _Parameter_; Compression extension as determined from `.PACKAGE_NAME`.
+- `.PACKAGE_DIR`: _Parameter_; If compressed, the directory inside the compressed package. This is normally `.PACKAGE_NAME` minus `.COMPRESS_EXT`.
+- `.ASSET_DIR`: _Parameter_; True if the package is compressed and has a subdirectory. Empty otherwise.
+- `.DOWNLOAD_URL`: _Parameter_; Full URL to download the asset.
+- `.FILE_NAME`: _Parameter_; If compressed, the filename of the file to extract. 
+- `.BIN_NAME`: _Parameter_; The full path name to the binary file.
+- `.BIN_DIR`: _Parameter_; The directory to save the file to.
+
+### GitHub Get Attribute
+
+The `github-get-attribute` task is an internal task that gets attributes from GitHub's API that describe the asset.
 This is used to get the filename and download URL.
 
 - ENV vars: _Source_; Meaning or explanation.

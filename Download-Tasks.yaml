@@ -23,7 +23,7 @@ tasks:
       - sh: '[ "{{.BIN_DIR}}" != "" ]'
       - sh: 'test -d "{{.BIN_DIR}}"'
     cmds:
-      - cmd: 'echo BIN_DIR: {{.BIN_DIR}}'
+      # - cmd: 'echo BIN_DIR: {{.BIN_DIR}}'
       - cmd: |
           {{- range $i, $file := .BINARIES | trim | splitLines -}}
             {{ $bin := (print $.BIN_DIR "/" $file) | fromSlash }}
@@ -31,40 +31,11 @@ tasks:
           {{- end }}
           echo 'System cleaned from binary files'
 
-  # https://github.com/cloudflare/cfssl
-  cfssl-certinfo:
-    desc: Download 'cfssl-certinfo' to query certificates
-    deps:
-      - :init-all
-    vars:
-      NAME: cfssl-certinfo
-      OWNER: cloudflare
-      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
-      ARCH: '{{.ARCH | default ARCH}}'
-    cmds:
-      # vars are not passed to subtasks automatically.
-      # https://taskfile.dev/usage/#variables
-      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github-download
-        vars: {
-          NAME: '{{.NAME}}',
-          OWNER: '{{.OWNER}}',
-          REPO: 'cloudflare/cfssl',
-          ARCH: '{{.ARCH}}',
-          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{exeExt}}',
-          COMPRESS_EXT: 'None',
-        }
-    status:
-      # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
-      # and once as the user.
-      # TODO: Check for version numbers to see if it needs to be updated.
-      - "'{{.BIN_DIR}}{{fromSlash \"/\"}}{{.NAME}}' --help"
-
-  # Download the "compose" plugin for docker. This is "docker compose" v2 instead of "docker-compose" v1. Downloads are
-  # supported only for Linux.
-  # https://docs.docker.com/compose/install/
-  # https://github.com/docker/compose
   docker-compose:
+    # Download the "compose" plugin for docker. This is "docker compose" v2 instead of "docker-compose" v1. Downloads are
+    # supported only for Linux.
+    # https://docs.docker.com/compose/install/
+    # https://github.com/docker/compose
     desc: Download the 'compose' plugin for "docker compose" v2.
     # TODO: Should other OS's be supported?
     platforms: [linux, darwin]
@@ -84,7 +55,7 @@ tasks:
       ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
       ASSET_PATTERN: '{{.OWNER}}_{{.NAME}}_{{OS}}_{{.ARCH}}{{exeExt}}'
     cmds:
-      - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
+      # - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
       - task: :init-create-bin-dir
         vars: {
           BIN_DIR: '{{.BIN_DIR}}'
@@ -108,9 +79,36 @@ tasks:
       # TODO: Check for version numbers to see if it needs to be updated.
       - "'{{.BIN_DIR}}{{fromSlash \"/\"}}{{.NAME}}' --help"
 
-  # Download lego, an Let's Encrypt/ACME client.
-  # https://github.com/go-acme/lego
+  cfssl-certinfo:
+    # https://github.com/cloudflare/cfssl
+    desc: Download 'cfssl-certinfo' to query certificates
+    deps:
+      - :init-all
+    vars:
+      NAME: cfssl-certinfo
+      OWNER: cloudflare
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{.ARCH | default ARCH}}'
+    cmds:
+      # vars are not passed to subtasks automatically.
+      # https://taskfile.dev/usage/#variables
+      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
+      - task: :github-download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          REPO: 'cloudflare/cfssl',
+          ARCH: '{{.ARCH}}',
+          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{exeExt}}',
+        }
+    status:
+      # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
+      # and once as the user.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - "'{{.BIN_DIR}}{{fromSlash \"/\"}}{{.NAME}}' --help"
+
   lego:
+    # https://github.com/go-acme/lego
     desc: Download 'lego', a Let's Encrypt/ACME client.
     deps:
       - :init-all
@@ -119,12 +117,7 @@ tasks:
       OWNER: go-acme
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{.ARCH | default ARCH}}'
-      COMPRESS_EXT: '{{if eq OS "windows"}}.zip{{else}}.tar.gz{{end}}'
     cmds:
-#      - task: :init-create-bin-dir
-#        vars: {
-#          BIN_DIR: '{{.BIN_DIR}}'
-#        }
       # vars are not passed to subtasks automatically.
       # https://taskfile.dev/usage/#variables
       # https://github.com/go-task/task/issues/888#issuecomment-1273264393
@@ -134,7 +127,8 @@ tasks:
           OWNER: '{{.OWNER}}',
           ARCH: '{{.ARCH}}',
           COMPRESS_EXT: '{{.COMPRESS_EXT}}',
-          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{.COMPRESS_EXT}}',
+          # Append * to match any COMPRESS_EXT
+          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}*',
         }
     status:
       # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
@@ -142,16 +136,14 @@ tasks:
       # TODO: Check for version numbers to see if it needs to be updated.
       - "'{{.BIN_DIR}}{{fromSlash \"/\"}}{{.NAME}}' --help"
 
-  # Download lego, an Let's Encrypt/ACME client.
-  # https://github.com/go-acme/lego
   rclone:
+    # https://github.com/rclone/rclone
     desc: Download 'rclone', rsync for cloud storage.
     vars:
       NAME: rclone
       OWNER: rclone
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{.ARCH | default ARCH}}'
-      COMPRESS_EXT: '.zip'
     cmds:
       - task: :init-create-bin-dir
       # vars are not passed to subtasks automatically.
@@ -163,10 +155,40 @@ tasks:
           OWNER: '{{.OWNER}}',
           ARCH: '{{.ARCH}}',
           ASSET_DIR: true,
-          ASSET_PATTERN: '{{.NAME}}-*-{{OS}}-{{.ARCH}}{{.COMPRESS_EXT}}',
+          ASSET_PATTERN: '{{.NAME}}-*-{{OS}}-{{.ARCH}}*',
         }
     status:
       # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
       # and once as the user.
       # TODO: Check for version numbers to see if it needs to be updated.
       - "'{{.BIN_DIR}}{{fromSlash \"/\"}}{{.NAME}}' --help"
+
+  ripgrep:
+    # https://github.com/BurntSushi/ripgrep
+    desc: Download 'ripgrep' (command 'rg'), an enhanced grep.
+    aliases: [rg]
+    vars:
+      NAME: ripgrep
+      OWNER: BurntSushi
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
+      FILE_NAME: 'rg'
+    cmds:
+      - task: :init-create-bin-dir
+      # vars are not passed to subtasks automatically.
+      # https://taskfile.dev/usage/#variables
+      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
+      - task: :github-download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          FILE_NAME: '{{.FILE_NAME}}',
+          ASSET_DIR: true,
+          ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-unknown-{{OS}}-musl*',
+        }
+    status:
+      # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
+      # and once as the user.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - "{{.BIN_DIR}}{{fromSlash '/'}}{{.FILE_NAME}} --version"
