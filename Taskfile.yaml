@@ -18,7 +18,7 @@ env:
       {{- end -}}
 
 includes:
-  download: Download-Tasks.yaml
+  download: Install-Tasks.yaml
 
 tasks:
 
@@ -208,7 +208,7 @@ tasks:
         sh: |
           task --silent github-get-attribute "ATTRIBUTE='tag_name'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
       COMPRESS_EXT: '{{.COMPRESS_EXT | default "" }}'
-      PACKAGE_DIR: '{{ trimSuffix .COMPRESS_EXT .PACKAGE_NAME }}'
+      PACKAGE_DIR: '{{.PACKAGE_DIR | default (trimSuffix .COMPRESS_EXT .PACKAGE_NAME) }}'
     preconditions:
       - task: init-all
       - sh: '[ "{{.NAME}}" != "" ]'

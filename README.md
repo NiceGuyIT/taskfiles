@@ -4,6 +4,15 @@ A collection of task files for use with [task][].
 
 [task]: https://github.com/go-task/task
 
+## Goals
+
+This project strives to make it easy to run tasks while maintaining a minimum impact to the system.
+
+1. Minimal requirements to bootstrap the system.
+2. Only single binary tools are used. This usually means tools that are written in Rust or Go.
+3. All configuration is passed via environmental variables.
+4. Streaming is preferred over temporary files.
+
 ## Requirements
 
 The following programs are needed to download and uncompress files.
@@ -118,18 +127,20 @@ The `github-download` task will download executables from GitHub repos. Here is 
 > something like `{{.NAME}}_*_{{OS}}_{{.ARCH}}{{.COMPRESS_EXT}}'` where `COMPRESS_EXT` is `.zip`
 > or `.tar.gz`. `COMPRESS_EXT` is mandatory if the asset has an extension. That's because some assets have an extension
 > while others don't.
+---
 
-| ENV var          | Parameter | Generated | Default               | Meaning or explanation                                                              |
-|------------------|:---------:|:---------:|-----------------------|-------------------------------------------------------------------------------------|
-| `.NAME`          | &#x2714;  |           |                       | Required. Name of the repo. Also the name of the binary to download.                |
-| `.OWNER`         | &#x2714;  |           |                       | Required. Owner of the repo.                                                        |
-| `.COMPRESS_EXT`  | &#x2714;  |           |                       | Optional. Compression extension. Usually `.tar.gz` for \*nix and `.zip` for Windows |
-| `.ASSET_PATTERN` | &#x2714;  |           |                       | Required. Pattern of the filename listed in the release assets.                     |
-| `.ARCH`          | &#x2714;  |           |                       | Architecture to download. Some releases use "x86_64" instead of "amd64".            |
-| `.REPO`          | &#x2714;  | &#x2714;  | `.NAME/.OWNER`        | Repository name.                                                                    |
-| `.FILE_NAME`     | &#x2714;  | &#x2714;  | `.NAME.exeExt`        | Use this if the binary is not the same as the NAME.                                 |
-| `.BIN_NAME`      |           | &#x2714;  | `.BIN_DIR/.FILE_NAME` |                                                                                     |
-| `.REPO_URL`      |           | &#x2714;  |                       | `https://api.github.com/repos/{{.REPO}}/releases/latest`                            |
+| ENV var         | Parameter | Generated | Default                       | Meaning or explanation                                                               |
+|-----------------|:---------:|:---------:|-------------------------------|--------------------------------------------------------------------------------------|
+| `NAME`          | &#x2714;  |           |                               | Required. Name of the repo. Also the name of the binary to download.                 |
+| `OWNER`         | &#x2714;  |           |                               | Required. Owner of the repo.                                                         |
+| `COMPRESS_EXT`  | &#x2714;  |           |                               | Optional. Compression extension. Usually `.tar.gz` for \*nix and `.zip` for Windows  |
+| `ASSET_PATTERN` | &#x2714;  |           |                               | Required. Pattern of the filename listed in the release assets.                      |
+| `ARCH`          | &#x2714;  |           |                               | Architecture to download. Some releases use "x86_64" instead of "amd64".             |
+| `REPO`          | &#x2714;  | &#x2714;  | `NAME/OWNER`                  | Repository name.                                                                     |
+| `FILE_NAME`     | &#x2714;  | &#x2714;  | `NAME.exeExt`                 | Use this if the binary is not the same as the NAME.                                  |
+| `PACKAGE_DIR`   | &#x2714;  | &#x2714;  | `ASSET_NAME` - `COMPRESS_EXT` | Use this if the package directory inside the archive is different than `ASSET_NAME`. |
+| `BIN_NAME`      |           | &#x2714;  | `BIN_DIR/FILE_NAME`           |                                                                                      |
+| `REPO_URL`      |           | &#x2714;  |                               | `https://api.github.com/repos/{{.REPO}}/releases/latest`                             |
 
 ### GitHub Download Asset
 

@@ -4,24 +4,28 @@ version: "3"
 tasks:
 
   all:
-    desc: Download all binaries
+    desc: Install all binaries
     cmds:
       - task: cfssl-certinfo
       - task: docker-compose
       - task: lego
       - task: rclone
       - task: ripgrep
+      - task: age
+      - task: age-keygen
 
-  clean:
+  uninstall:
     # docker-compose needs special treatment to remove.
     # ripgrep is named 'rg'
-    desc: Clean up (remove) downloaded binaries
+    desc: Clean up (remove) installed binaries
     vars:
       BINARIES: |
         cfssl-certinfo
         lego
         rclone
         rg
+        age
+        age-keygen
     preconditions:
       - sh: '[ "{{.BIN_DIR}}" != "" ]'
       - sh: 'test -d "{{.BIN_DIR}}"'
@@ -36,11 +40,11 @@ tasks:
 
 
   docker-compose:
-    # Download the "compose" plugin for docker. This is "docker compose" v2 instead of "docker-compose" v1. Downloads are
+    # Install the "compose" plugin for docker. This is "docker compose" v2 instead of "docker-compose" v1. Installs are
     # supported only for Linux.
     # https://docs.docker.com/compose/install/
     # https://github.com/docker/compose
-    desc: Download the 'compose' plugin for "docker compose" v2.
+    desc: Install the 'compose' plugin for "docker compose" v2.
     # TODO: Should other OS's be supported?
     platforms: [linux, darwin]
     vars:
@@ -77,14 +81,14 @@ tasks:
           BIN_DIR: '{{.BIN_DIR}}'
         }
     status:
-      # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
-      # and once as the user.
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
       - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
 
   cfssl-certinfo:
     # https://github.com/cloudflare/cfssl
-    desc: Download 'cfssl-certinfo' to query certificates
+    desc: Install 'cfssl-certinfo' to query certificates
     deps:
       - :init-all
     vars:
@@ -105,14 +109,14 @@ tasks:
           ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{exeExt}}',
         }
     status:
-      # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
-      # and once as the user.
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
       - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
 
   lego:
     # https://github.com/go-acme/lego
-    desc: Download 'lego', a Let's Encrypt/ACME client.
+    desc: Install 'lego', a Let's Encrypt/ACME client.
     deps:
       - :init-all
     vars:
@@ -135,14 +139,14 @@ tasks:
           ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{.COMPRESS_EXT}}',
         }
     status:
-      # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
-      # and once as the user.
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
       - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
 
   rclone:
     # https://github.com/rclone/rclone
-    desc: Download 'rclone', rsync for cloud storage.
+    desc: Install 'rclone', rsync for cloud storage.
     vars:
       NAME: rclone
       OWNER: rclone
@@ -164,14 +168,14 @@ tasks:
           ASSET_PATTERN: '{{.NAME}}-*-{{OS}}-{{.ARCH}}{{.COMPRESS_EXT}}',
         }
     status:
-      # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
-      # and once as the user.
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
       - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" version'
 
   ripgrep:
     # https://github.com/BurntSushi/ripgrep
-    desc: Download 'ripgrep' (command 'rg'), an enhanced grep.
+    desc: Install 'ripgrep' (command 'rg'), an enhanced grep.
     aliases: [rg]
     vars:
       NAME: ripgrep
@@ -196,7 +200,95 @@ tasks:
           ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-unknown-{{OS}}-musl{{.COMPRESS_EXT}}',
         }
     status:
-      # This only checks if the executable exists. This is to prevent downloading the file twice: once as the system
-      # and once as the user.
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'
+
+  age:
+    # https://github.com/FiloSottile/age
+    desc: Install 'age' file encryption.
+    vars:
+      NAME: age
+      OWNER: FiloSottile
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{.ARCH | default ARCH}}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+    cmds:
+      - task: :init-all
+      # vars are not passed to subtasks automatically.
+      # https://taskfile.dev/usage/#variables
+      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
+      - task: :github-download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          ASSET_DIR: true,
+          PACKAGE_DIR: 'age',
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          ASSET_PATTERN: '{{.NAME}}-*-{{OS}}-{{.ARCH}}{{.COMPRESS_EXT}}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'
+
+  age-keygen:
+    # https://github.com/FiloSottile/age
+    desc: Install 'age-keygen' from the age file encryption package.
+    vars:
+      NAME: age
+      OWNER: FiloSottile
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{.ARCH | default ARCH}}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+      FILE_NAME: 'age-keygen'
+    cmds:
+      - task: :init-all
+      # vars are not passed to subtasks automatically.
+      # https://taskfile.dev/usage/#variables
+      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
+      - task: :github-download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          FILE_NAME: '{{.FILE_NAME}}',
+          ASSET_DIR: true,
+          PACKAGE_DIR: 'age',
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          ASSET_PATTERN: '{{.NAME}}-*-{{OS}}-{{.ARCH}}{{.COMPRESS_EXT}}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'
+
+  sops:
+    # https://github.com/mozilla/sops
+    desc: Install 'sops', a simple and flexible tool for managing secrets.
+    vars:
+      NAME: age
+      OWNER: mozilla
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{.ARCH | default ARCH}}'
+    cmds:
+      - task: :init-all
+      # vars are not passed to subtasks automatically.
+      # https://taskfile.dev/usage/#variables
+      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
+      - task: :github-download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          ASSET_PATTERN: '{{.NAME}}-*.{{OS}}.{{.ARCH}}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
       - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'

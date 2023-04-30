@@ -1,6 +1,9 @@
 # Exclude the bin directory in case it's used as BIN_DIR.
 bin/
 
+# Temp directory to download files for testing.
+tmp/
+
 # Created by https://www.toptal.com/developers/gitignore/api/jetbrains
 # Edit at https://www.toptal.com/developers/gitignore?templates=jetbrains
 
