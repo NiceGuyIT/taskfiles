@@ -4,6 +4,64 @@ version: "3"
 tasks:
   # These tasks are not used but kept in case they might be used in the future.
 
+  init-dl-gh:
+    # gh requires authentication for all actions.
+    # https://github.com/cli/cli
+    desc: Download 'gh' CLI into the bin directory
+    deps:
+      - init-create-bin-dir
+      - init-dl-yq
+    vars:
+      # Order matters!
+      NAME: cli
+      OWNER: cli
+      REPO: '{{.OWNER}}/{{.NAME}}'
+      FILE_NAME: 'gh{{exeExt}}'
+      BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+      ASSET_PATTERN: 'gh_*_{{OS}}_{{ARCH}}{{.COMPRESS_EXT}}'
+      REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
+      DOWNLOAD_URL:
+        sh: |
+          curl --silent --location --output - '{{.REPO_URL}}' |
+          yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .browser_download_url'
+      PACKAGE_NAME:
+        sh: |
+          curl --silent --location --output - '{{.REPO_URL}}' |
+          yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .name'
+      PACKAGE_DIR: '{{ trimSuffix .COMPRESS_EXT .PACKAGE_NAME }}'
+    preconditions:
+      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
+        msg: |
+          curl is required to download files. Please install 'curl' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
+        msg: |
+          tar is required to extract files from archives. Please install 'tar' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
+        msg: |
+          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
+    cmds:
+      - cmd: |
+          curl --silent --location --output - '{{.DOWNLOAD_URL}}' |
+          tar --directory '{{.BIN_DIR}}' --strip-components 2 -zxf - '{{.PACKAGE_DIR}}/bin/{{.FILE_NAME}}'
+          chmod a+x {{.BIN_NAME}}
+        platforms: [linux, darwin]
+      - cmd: |
+          powershell -Command '
+            $tmp_file = New-TemporaryFile
+            Remove-Item -Path $tmp_file
+            $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
+            $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
+            $ProgressPreference = "SilentlyContinue"
+            Invoke-WebRequest -URI "{{.REPO_URL}}" -OutFile $zip_file
+            Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
+            Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}") -Destination {{.BIN_DIR}}
+            Remove-Item -Path $tmp_dir -Recurse
+          '
+        platforms: [windows]
+    status:
+      - "{{.BIN_NAME}} --version"
+
   ghrel:
     desc: Download the ghrel binary
     vars:

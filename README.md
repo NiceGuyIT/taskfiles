@@ -101,23 +101,35 @@ Remove-Item -Path $tmp_dir -Recurse
 
 ## Tasks
 
+`task` uses Go templates to interpret variable names, including environmental variables. The environmental
+variable `NAME` is written as `{{.NAME}}` in the template. The `{{` and `}}` denote the start and end of the template.
+The period refers to the variable name; without the period it refers to a function name. For example, `{{.ARCH}}` is
+the variable that holds the architecture, while `{{ARCH}}` is a function provided by `task` and returns the
+architecture. Since curly braces are part of the YAML syntax, they need to be enclosed in quotes or used in a text
+block.
+
+The names below refer to variable names, `NAME`, not the Go template name `{{.NAME}}`.
+
 ### GitHub Download
 
-The `github-download` task will download executables from GitHub repos. These variables can be input into
-the `github-download` task.
+The `github-download` task will download executables from GitHub repos. Here is the list of supported variables.
 
-- ENV vars: _Source_; Meaning or explanation.
-- `.NAME`: _Parameter_; Name of the binary to download. Normally this is the repo name.
-- `.OWNER`: _Parameter_; Owner of the repo.
-- `.ASSET_PATTERN`: _Parameter_; Pattern of the filename listed in the release assets. If an asset has a
-  COMPRESS_EXT, `.tar.gz` for example, append `*` to the end to match all extensions. As long as the ASSET_PATTERN is
-  unique, only 1 attribute will be returned and the COMPRESS_EXT will be extracted from the asset name.
-- `.ARCH`: _Parameter_; Architecture to download. Some releases use "x86_64" instead of "amd64".
-- `.REPO`: _Parameter_, _Generated_; Default to `.NAME/.OWNER` if not provided.
-- `.FILE_NAME`: _Parameter_, _Generated_; Default to `.NAME.exeExt` if not provided. Use this if the binary is not the
-  same as the NAME.
-- `.BIN_NAME`: _Generated_; `.BIN_DIR/.FILE_NAME`
-- `.REPO_URL`: _Generated_; `https://api.github.com/repos/{{.REPO}}/releases/latest`
+> ⚠️ **Note:** The `ASSET_PATTERN` is used to find 1 asset from the GitHub API. `ASSET_PATTERN` is normally
+> something like `{{.NAME}}_*_{{OS}}_{{.ARCH}}{{.COMPRESS_EXT}}'` where `COMPRESS_EXT` is `.zip`
+> or `.tar.gz`. `COMPRESS_EXT` is mandatory if the asset has an extension. That's because some assets have an extension
+> while others don't.
+
+| ENV var          | Parameter | Generated | Default               | Meaning or explanation                                                              |
+|------------------|:---------:|:---------:|-----------------------|-------------------------------------------------------------------------------------|
+| `.NAME`          | &#x2714;  |           |                       | Required. Name of the repo. Also the name of the binary to download.                |
+| `.OWNER`         | &#x2714;  |           |                       | Required. Owner of the repo.                                                        |
+| `.COMPRESS_EXT`  | &#x2714;  |           |                       | Optional. Compression extension. Usually `.tar.gz` for \*nix and `.zip` for Windows |
+| `.ASSET_PATTERN` | &#x2714;  |           |                       | Required. Pattern of the filename listed in the release assets.                     |
+| `.ARCH`          | &#x2714;  |           |                       | Architecture to download. Some releases use "x86_64" instead of "amd64".            |
+| `.REPO`          | &#x2714;  | &#x2714;  | `.NAME/.OWNER`        | Repository name.                                                                    |
+| `.FILE_NAME`     | &#x2714;  | &#x2714;  | `.NAME.exeExt`        | Use this if the binary is not the same as the NAME.                                 |
+| `.BIN_NAME`      |           | &#x2714;  | `.BIN_DIR/.FILE_NAME` |                                                                                     |
+| `.REPO_URL`      |           | &#x2714;  |                       | `https://api.github.com/repos/{{.REPO}}/releases/latest`                            |
 
 ### GitHub Download Asset
 
@@ -127,10 +139,11 @@ binary in `.BIN_NAME`.
 - ENV vars: _Source_; Meaning or explanation.
 - `.PACKAGE_NAME`: _Parameter_; Package name as extracted from the API.
 - `.COMPRESS_EXT`: _Parameter_; Compression extension as determined from `.PACKAGE_NAME`.
-- `.PACKAGE_DIR`: _Parameter_; If compressed, the directory inside the compressed package. This is normally `.PACKAGE_NAME` minus `.COMPRESS_EXT`.
+- `.PACKAGE_DIR`: _Parameter_; If compressed, the directory inside the compressed package. This is
+  normally `.PACKAGE_NAME` minus `.COMPRESS_EXT`.
 - `.ASSET_DIR`: _Parameter_; True if the package is compressed and has a subdirectory. Empty otherwise.
 - `.DOWNLOAD_URL`: _Parameter_; Full URL to download the asset.
-- `.FILE_NAME`: _Parameter_; If compressed, the filename of the file to extract. 
+- `.FILE_NAME`: _Parameter_; If compressed, the filename of the file to extract.
 - `.BIN_NAME`: _Parameter_; The full path name to the binary file.
 - `.BIN_DIR`: _Parameter_; The directory to save the file to.
 
