@@ -6,13 +6,14 @@ tasks:
   all:
     desc: Install all binaries
     cmds:
+      - task: age
+      - task: age-keygen
       - task: cfssl-certinfo
       - task: docker-compose
       - task: lego
       - task: rclone
       - task: ripgrep
-      - task: age
-      - task: age-keygen
+      - task: sops
 
   uninstall:
     # docker-compose needs special treatment to remove.
@@ -26,6 +27,7 @@ tasks:
         rg
         age
         age-keygen
+        sops
     preconditions:
       - sh: '[ "{{.BIN_DIR}}" != "" ]'
       - sh: 'test -d "{{.BIN_DIR}}"'
