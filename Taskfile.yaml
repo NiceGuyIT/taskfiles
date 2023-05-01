@@ -18,7 +18,7 @@ env:
       {{- end -}}
 
 includes:
-  download: Install-Tasks.yaml
+  install: Install-Tasks.yaml
 
 tasks:
 
@@ -88,15 +88,16 @@ tasks:
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
       REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
       # Some packages use x86_64 instead of amd64
-      ARCH: '{{ if eq ARCH "amd64"}}x86_64{{ else }}{{ARCH}}{{ end }}'
+      ARCH: '{{ if or (eq ARCH "amd64") (eq ARCH "arm64") }}x86_64{{ else }}{{ARCH}}{{ end }}'
+      ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}*{{.COMPRESS_EXT}}'
       DOWNLOAD_URL:
         sh: |
           curl --silent --location --output - '{{.REPO_URL}}' |
-          yq --unwrapScalar '.assets[] | select(.name=="{{.NAME}}-*-{{.ARCH}}-*-{{OS}}-*{{.COMPRESS_EXT}}") | .browser_download_url'
+          yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .browser_download_url'
       PACKAGE_NAME:
         sh: |
           curl --silent --location --output - '{{.REPO_URL}}' |
-          yq --unwrapScalar '.assets[] | select(.name=="{{.NAME}}-*-{{.ARCH}}-*-{{OS}}-*{{.COMPRESS_EXT}}") | .name'
+          yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .name'
       PACKAGE_DIR: '{{ trimSuffix .COMPRESS_EXT .PACKAGE_NAME }}'
     preconditions:
       - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'

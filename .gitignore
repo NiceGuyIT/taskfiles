@@ -4,6 +4,9 @@ bin/
 # Temp directory to download files for testing.
 tmp/
 
+# Task is downloaded to the current directory during install.
+task
+
 # Created by https://www.toptal.com/developers/gitignore/api/jetbrains
 # Edit at https://www.toptal.com/developers/gitignore?templates=jetbrains
 

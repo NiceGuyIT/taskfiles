@@ -46,7 +46,9 @@ tasks:
     # https://github.com/docker/compose
     desc: Install the 'compose' plugin for "docker compose" v2.
     # TODO: Should other OS's be supported?
-    platforms: [linux, darwin]
+    # Officially, manually installing "compose" is supported only on Linux. Other OS's are expected to install
+    # Docker Desktop.
+    platforms: [linux]
     vars:
       BIN_DIR_ROOT: '/usr/local/lib/docker/cli-plugins'
       BIN_DIR_USER: '{{.HOME}}/.docker/cli-plugins'
@@ -60,7 +62,7 @@ tasks:
       NAME: compose
       OWNER: docker
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
-      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
+      ARCH: '{{ if eq ARCH "amd64" }}x86_64{{ else if eq ARCH "arm64" }}aarch64{{ else }}{{ARCH}}{{ end }}'
       ASSET_PATTERN: '{{.OWNER}}_{{.NAME}}_{{OS}}_{{.ARCH}}{{exeExt}}'
     cmds:
       # - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
@@ -95,7 +97,7 @@ tasks:
       NAME: cfssl-certinfo
       OWNER: cloudflare
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
-      ARCH: '{{.ARCH | default ARCH}}'
+      ARCH: '{{if eq ARCH "arm64"}}amd64{{else}}{{ARCH}}{{end}}'
     cmds:
       # vars are not passed to subtasks automatically.
       # https://taskfile.dev/usage/#variables
@@ -152,6 +154,7 @@ tasks:
       OWNER: rclone
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{.ARCH | default ARCH}}'
+      OS: '{{ if eq OS "darwin" }}osx{{ else }}{{OS}}{{end}}'
       COMPRESS_EXT: '.zip'
     cmds:
       - task: :init-all
@@ -165,7 +168,7 @@ tasks:
           ARCH: '{{.ARCH}}',
           ASSET_DIR: true,
           COMPRESS_EXT: '{{.COMPRESS_EXT}}',
-          ASSET_PATTERN: '{{.NAME}}-*-{{OS}}-{{.ARCH}}{{.COMPRESS_EXT}}',
+          ASSET_PATTERN: '{{.NAME}}-*-{{.OS}}-{{.ARCH}}{{.COMPRESS_EXT}}',
         }
     status:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
