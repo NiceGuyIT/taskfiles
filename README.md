@@ -1,8 +1,10 @@
 # taskfiles
 
-A collection of task files for use with [task][].
+A collection of task files for use with [task][]. There's a repo that has [advanced examples][].
 
 [task]: https://github.com/go-task/task
+
+[advanced examples]: https://gitlab.com/megabyte-labs/common/shared/-/tree/master/.config/taskfiles
 
 ## Goals
 
