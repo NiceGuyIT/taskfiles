@@ -276,7 +276,7 @@ tasks:
     # https://github.com/mozilla/sops
     desc: Install 'sops', a simple and flexible tool for managing secrets.
     vars:
-      NAME: age
+      NAME: sops
       OWNER: mozilla
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{.ARCH | default ARCH}}'
