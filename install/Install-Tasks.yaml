@@ -1,6 +1,17 @@
 ---
 version: "3"
 
+vars:
+  SOFTWARE_LIST: |
+    age
+    age-keygen
+    cfssl-certinfo
+    lego
+    rclone
+    ripgrep
+    sops
+
+
 tasks:
 
   all:
@@ -34,8 +45,9 @@ tasks:
     cmds:
       # - cmd: 'echo BIN_DIR: {{.BIN_DIR}}'
       - cmd: |
-          {{- range $i, $file := .BINARIES | trim | splitLines -}}
+          {{- range $i, $file := .SOFTWARE_LIST | trim | splitLines -}}
             {{ $bin := (print $.BIN_DIR "/" $file) | fromSlash }}
+            test -f '{{$bin}}' || echo 'Binary "{{$bin}}" was not found.'
             test -f '{{$bin}}' && echo 'Deleting {{$bin}}' && rm '{{$bin}}'
           {{- end }}
           echo 'System cleaned from binary files'
@@ -68,14 +80,14 @@ tasks:
       ASSET_PATTERN: '{{.OWNER}}_{{.NAME}}_{{OS}}_{{.ARCH}}{{exeExt}}'
     cmds:
       # - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
-      - task: :init-all
+      - task: :init:all
         vars: {
           BIN_DIR: '{{.BIN_DIR}}'
         }
       # vars are not passed to subtasks automatically.
       # https://taskfile.dev/usage/#variables
       # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github-download
+      - task: :github:download
         vars: {
           NAME: '{{.NAME}}',
           OWNER: '{{.OWNER}}',
@@ -94,7 +106,7 @@ tasks:
     # https://github.com/cloudflare/cfssl
     desc: Install 'cfssl-certinfo' to query certificates
     deps:
-      - :init-all
+      - :init:all
     vars:
       NAME: cfssl-certinfo
       OWNER: cloudflare
@@ -104,7 +116,7 @@ tasks:
       # vars are not passed to subtasks automatically.
       # https://taskfile.dev/usage/#variables
       # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github-download
+      - task: :github:download
         vars: {
           NAME: '{{.NAME}}',
           OWNER: '{{.OWNER}}',
@@ -122,7 +134,7 @@ tasks:
     # https://github.com/go-acme/lego
     desc: Install 'lego', a Let's Encrypt/ACME client.
     deps:
-      - :init-all
+      - :init:all
     vars:
       NAME: lego
       OWNER: go-acme
@@ -133,7 +145,7 @@ tasks:
       # vars are not passed to subtasks automatically.
       # https://taskfile.dev/usage/#variables
       # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github-download
+      - task: :github:download
         vars: {
           NAME: '{{.NAME}}',
           OWNER: '{{.OWNER}}',
@@ -159,11 +171,11 @@ tasks:
       OS: '{{ if eq OS "darwin" }}osx{{ else }}{{OS}}{{end}}'
       COMPRESS_EXT: '.zip'
     cmds:
-      - task: :init-all
+      - task: :init:all
       # vars are not passed to subtasks automatically.
       # https://taskfile.dev/usage/#variables
       # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github-download
+      - task: :github:download
         vars: {
           NAME: '{{.NAME}}',
           OWNER: '{{.OWNER}}',
@@ -190,11 +202,11 @@ tasks:
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
       FILE_NAME: 'rg'
     cmds:
-      - task: :init-all
+      - task: :init:all
       # vars are not passed to subtasks automatically.
       # https://taskfile.dev/usage/#variables
       # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github-download
+      - task: :github:download
         vars: {
           NAME: '{{.NAME}}',
           OWNER: '{{.OWNER}}',
@@ -220,11 +232,11 @@ tasks:
       ARCH: '{{.ARCH | default ARCH}}'
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
     cmds:
-      - task: :init-all
+      - task: :init:all
       # vars are not passed to subtasks automatically.
       # https://taskfile.dev/usage/#variables
       # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github-download
+      - task: :github:download
         vars: {
           NAME: '{{.NAME}}',
           OWNER: '{{.OWNER}}',
@@ -251,11 +263,11 @@ tasks:
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
       FILE_NAME: 'age-keygen'
     cmds:
-      - task: :init-all
+      - task: :init:all
       # vars are not passed to subtasks automatically.
       # https://taskfile.dev/usage/#variables
       # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github-download
+      - task: :github:download
         vars: {
           NAME: '{{.NAME}}',
           OWNER: '{{.OWNER}}',
@@ -281,11 +293,11 @@ tasks:
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{.ARCH | default ARCH}}'
     cmds:
-      - task: :init-all
+      - task: :init:all
       # vars are not passed to subtasks automatically.
       # https://taskfile.dev/usage/#variables
       # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github-download
+      - task: :github:download
         vars: {
           NAME: '{{.NAME}}',
           OWNER: '{{.OWNER}}',
