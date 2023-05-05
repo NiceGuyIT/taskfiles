@@ -20,6 +20,9 @@
                   <Item>
                     <option name="path" value="install/Install-Tasks.yaml" />
                   </Item>
+                  <Item>
+                    <option name="path" value="trmm/TRMM-Tasks.yaml" />
+                  </Item>
                 </list>
               </option>
             </SchemaInfo>

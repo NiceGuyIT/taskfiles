@@ -1,0 +1,35 @@
+---
+version: '3'
+
+#vars:
+#  GREETING: Hello, World!
+
+tasks:
+  scripts-repo-add-upstream:
+    desc: Add an upstream repo to the Tactical RMM community scripts.
+    summary: |
+      This task will add a remote repo as an upstream repo to the TRMM community_scripts repo.
+
+      variables:
+      - REPO_DIR: 'community_scripts` repo directory. Default: '/srv/local/git/trmm-community-scripts'
+      - UPSTREAM_NAME: Upstream repo name. Default: 'upstream'
+      - UPSTREAM_URL: Upstream repo URL. Required.
+      - TRACK_BRANCH: Upstream branch to track.
+    vars:
+      REPO_DIR: '{{if .REPO_DIR}}{{ .REPO_DIR }}{{ else }}/srv/local/git/trmm-community-scripts{{ end }}'
+      UPSTREAM_NAME: '{{.UPSTREAM_NAME}}'
+      UPSTREAM_URL: '{{.UPSTREAM_URL}}'
+      TRACK_BRANCH: '{{if .TRACK_BRANCH}}{{ .TRACK_BRANCH }}{{ end }}'
+    preconditions:
+      - sh: '[ "{{.REPO_DIR}}" != "" ]'
+        msg: '.REPO_DIR is not defined. Please set it to the community scripts directory.'
+      - sh: '[ "{{.UPSTREAM_URL}}" != "" ]'
+        msg: '.UPSTREAM_URL is not defined. Please set it to a git repo to be used as an upstream.'
+    platforms: [linux]
+    cmds:
+      - cmd: 'echo "UPSTREAM_URL: {{.UPSTREAM_URL}}"'
+      - cmd: 'echo "REPO_DIR: {{.REPO_DIR}}"'
+      - cmd: |
+          cd '{{.REPO_DIR}}'
+          git remote add {{- if .TRACK_BRANCH }}{{.TRACK_BRANCH}}{{ end }} '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_URL}}'
+          git remote -v

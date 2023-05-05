@@ -30,6 +30,9 @@ includes:
   github:
     taskfile: github/GitHub-Tasks.yaml
     optional: true
+  trmm:
+    taskfile: trmm/TRMM-Tasks.yaml
+    optional: true
 
 tasks:
   donothing: 'true'
