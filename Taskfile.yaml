@@ -14,7 +14,7 @@ env:
               echo '{{.USERPROFILE}}\bin'
           fi
       {{- else -}}
-          echo '{{ if eq .USER "root"}}/usr/local/bin{{ else }}{{.HOME}}/bin{{ end }}'
+          echo '{{ if eq .USER "root" }}/usr/local/bin{{ else }}{{ .HOME }}/bin{{ end }}'
       {{- end -}}
 
 # Include all the tasks at the top level, so they can include tasks in other files. If the tasks are included in the

@@ -106,6 +106,7 @@ tasks:
       UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
       COMMUNITY_JSON: 'community_scripts.json'
       UPSTREAM_JSON: 'community_scripts-{{.UPSTREAM_NAME}}.json'
+      MGMT_CMD: 'load_community_scripts'
     preconditions:
       - task: :init:all
       - task: :install:yq
@@ -132,9 +133,12 @@ tasks:
           cp '{{.COMMUNITY_JSON}}' 'tmp-{{.COMMUNITY_JSON}}'
           yq  '. += load("{{.UPSTREAM_JSON}}")' 'tmp-{{.COMMUNITY_JSON}}' --output-format=json > '{{.COMMUNITY_JSON}}'
           rm 'tmp-{{.COMMUNITY_JSON}}'
+      - task: management-command
+        vars: {
+          MGMT_CMD: '{{.MGMT_CMD}}',
+        }
 
-
-  management-command-load_community_scripts:
+  management-command:
     desc: Run a TRMM management command in the Python console.
     summary: |
       This task run a TRMM management command in the Python console.
@@ -157,8 +161,8 @@ tasks:
       - cmd: 'echo "MGMT_CMD: {{.MGMT_CMD}}"'
       - cmd: 'echo "MGMT_ARGS: {{.MGMT_ARGS}}"'
       - cmd: |
-          su - {{.MGMT_USER}} -c '
+          {{ if ne .USER .MGMT_USER }}su - {{.MGMT_USER}} -c '{{ end }}
             cd "{{.MGMT_DIR}}"
             source ../env/bin/activate
             python manage.py {{.MGMT_CMD}} {{.MGMT_ARGS}}
-          '
+          {{ if eq .USER "root" }}'{{ end }}
