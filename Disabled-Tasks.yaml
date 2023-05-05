@@ -85,13 +85,13 @@ tasks:
     preconditions:
       - sh: '{{if ne OS "windows"}}command -v curl{{end}}'
         msg: |
-          curl is required to download files. Please install curl and 'task init' again.
+          curl is required to download files. Please install 'curl' and try again.
       - sh: '{{if ne OS "windows"}}command -v tar{{end}}'
         msg: |
-          tar is required to extract files from archives. Please install tar and 'task init' again.
+          tar is required to extract files from archives. Please install 'tar' and try again.
       - sh: '{{if ne OS "windows"}}command -v gunzip{{end}}'
         msg: |
-          gunzip is required to uncompress files. Please install gunzip/gzip and 'task init' again.
+          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
       - task: init-bin-dir
     cmds:
       - cmd: |

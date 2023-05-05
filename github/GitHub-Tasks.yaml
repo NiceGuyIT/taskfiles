@@ -32,7 +32,7 @@ tasks:
       COMPRESS_EXT: '{{.COMPRESS_EXT | default "" }}'
       PACKAGE_DIR: '{{.PACKAGE_DIR | default (trimSuffix .COMPRESS_EXT .PACKAGE_NAME) }}'
     preconditions:
-      - task: all
+      - task: :init:all
       - sh: '[ "{{.NAME}}" != "" ]'
         msg: '.NAME is not defined'
       - sh: '[ "{{.OWNER}}" != "" ]'
@@ -82,7 +82,7 @@ tasks:
   download-asset:
     desc: Download an asset from GitHub
     preconditions:
-      - task: all
+      - task: :init:all
       - sh: '[ "{{.PACKAGE_NAME}}" != "" ]'
         msg: '.PACKAGE_NAME is not defined'
       - sh: '[ "{{.PACKAGE_DIR}}" != "" ]'
@@ -97,16 +97,16 @@ tasks:
         msg: '{{.BIN_DIR}} does not exist'
       - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
         msg: |
-          curl is required to download files. Please install curl and 'task init' again.
+          curl is required to download files. Please install 'curl' and try again.
       - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
         msg: |
-          tar is required to extract files from archives. Please install tar and 'task init' again.
+          tar is required to extract files from archives. Please 'install' tar and try again.
       - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
         msg: |
-          gunzip is required to uncompress files. Please install gunzip/gzip and 'task init' again.
+          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
       - sh: '{{ if ne OS "windows"}}command -v unzip{{ end }}'
         msg: |
-          unzip is required to uncompress files. Please install unzip/zip and try again.
+          unzip is required to uncompress files. Please install 'unzip'/'zip' and try again.
     cmds:
       # Use this for debugging
       - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'

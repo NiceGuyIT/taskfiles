@@ -1,35 +1,144 @@
 ---
 version: '3'
 
-#vars:
-#  GREETING: Hello, World!
+# Variables are global with precedence hierarchy.
+vars:
+  TRMM_DEFAULT_REPO_DIR: '/srv/local/git/trmm-community-scripts'
+  TRMM_DEFAULT_UPSTREAM_NAME: 'myscripts'
+  TRMM_DEFAULT_UPSTREAM_BRANCH: 'main'
 
 tasks:
+
   scripts-repo-add-upstream:
     desc: Add an upstream repo to the Tactical RMM community scripts.
     summary: |
       This task will add a remote repo as an upstream repo to the TRMM community_scripts repo.
 
       variables:
-      - REPO_DIR: 'community_scripts` repo directory. Default: '/srv/local/git/trmm-community-scripts'
-      - UPSTREAM_NAME: Upstream repo name. Default: 'upstream'
-      - UPSTREAM_URL: Upstream repo URL. Required.
-      - TRACK_BRANCH: Upstream branch to track.
+      - REPO_DIR: 'community_scripts` repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+      - UPSTREAM_NAME: Upstream repo name. Default: '{{.TRMM_DEFAULT_UPSTREAM_NAME}}'
+      - UPSTREAM_REPO: Upstream repo URL. Required.
+      - UPSTREAM_BRANCH: Upstream branch to track. Default: '{{.TRMM_DEFAULT_UPSTREAM_BRANCH}}'
     vars:
-      REPO_DIR: '{{if .REPO_DIR}}{{ .REPO_DIR }}{{ else }}/srv/local/git/trmm-community-scripts{{ end }}'
-      UPSTREAM_NAME: '{{.UPSTREAM_NAME}}'
-      UPSTREAM_URL: '{{.UPSTREAM_URL}}'
-      TRACK_BRANCH: '{{if .TRACK_BRANCH}}{{ .TRACK_BRANCH }}{{ end }}'
-    preconditions:
-      - sh: '[ "{{.REPO_DIR}}" != "" ]'
-        msg: '.REPO_DIR is not defined. Please set it to the community scripts directory.'
-      - sh: '[ "{{.UPSTREAM_URL}}" != "" ]'
-        msg: '.UPSTREAM_URL is not defined. Please set it to a git repo to be used as an upstream.'
+      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
+      UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
+      UPSTREAM_REPO: '{{.UPSTREAM_REPO}}'
+      UPSTREAM_BRANCH: '{{.UPSTREAM_BRANCH | default .TRMM_DEFAULT_UPSTREAM_BRANCH }}'
     platforms: [linux]
+    deps:
+      - :install:rg
+    preconditions:
+      - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
+        msg: |
+          git is required to clone repos. Please install 'git' and try again.
+      - sh: '[ "{{.REPO_DIR}}" != "" ]'
+        msg: 'REPO_DIR is not defined. Please set it to the community scripts directory.'
+      - sh: '[ "{{.UPSTREAM_REPO}}" != "" ]'
+        msg: 'UPSTREAM_REPO is not defined. Please set it to a git repo to be used as an upstream.'
     cmds:
-      - cmd: 'echo "UPSTREAM_URL: {{.UPSTREAM_URL}}"'
       - cmd: 'echo "REPO_DIR: {{.REPO_DIR}}"'
+      - cmd: 'echo "UPSTREAM_NAME: {{.UPSTREAM_NAME}}"'
+      - cmd: 'echo "UPSTREAM_REPO: {{.UPSTREAM_REPO}}"'
+      - cmd: 'echo "UPSTREAM_BRANCH: {{.UPSTREAM_BRANCH}}"'
       - cmd: |
           cd '{{.REPO_DIR}}'
-          git remote add {{- if .TRACK_BRANCH }}{{.TRACK_BRANCH}}{{ end }} '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_URL}}'
+          git remote add {{ if .UPSTREAM_BRANCH }}--track '{{.UPSTREAM_BRANCH}}'{{ end }} '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_REPO}}'
+      - cmd: |
+          cd '{{.REPO_DIR}}'
           git remote -v
+      - cmd: |
+          cd '{{.REPO_DIR}}'
+          git push --verbose '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_BRANCH}}'
+    status:
+      - |
+        cd '{{.REPO_DIR}}'
+        git remote -v | rg --quiet '^{{.UPSTREAM_NAME}}'
+
+  scripts-repo-add-example:
+    desc: Add an example and commit to the upstream repo.
+    summary: |
+      This task will add a "Hello World!" script to the upstream repo to be used as an example.
+
+      variables:
+      - REPO_DIR: 'community_scripts` repo directory. Default: '/srv/local/git/trmm-community-scripts'
+      - UPSTREAM_NAME: Upstream repo name. Default: 'upstream'
+      - UPSTREAM_REPO: Upstream repo URL. Required.
+      - UPSTREAM_BRANCH: Upstream branch to track.
+    vars:
+      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
+      UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
+      UPSTREAM_BRANCH: '{{.UPSTREAM_BRANCH | default .TRMM_DEFAULT_UPSTREAM_BRANCH }}'
+      UPSTREAM_JSON: 'community_scripts-{{.UPSTREAM_NAME}}.json'
+      HELLO_WORLD: 'hello-world.sh'
+    deps:
+      - :init:all
+    preconditions:
+      - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
+        msg: |
+          git is required to clone repos. Please install 'git' and try again.
+      - sh: '[ "{{.REPO_DIR}}" != "" ]'
+        msg: 'REPO_DIR is not defined. Please set it to the community scripts directory.'
+      - sh: '[ "{{.UPSTREAM_NAME}}" != "" ]'
+        msg: 'UPSTREAM_NAME is not defined. Please set it to the name of an upstream git repo.'
+      - sh: '[ "{{.UPSTREAM_BRANCH}}" != "" ]'
+        msg: 'UPSTREAM_BRANCH is not defined. Please set it to the name of the upstream branch.'
+    platforms: [linux]
+    cmds:
+      - cmd: |
+          cd '{{.REPO_DIR}}'
+          echo '[{}]' > '{{.UPSTREAM_JSON}}'
+          git add '{{.UPSTREAM_JSON}}'
+      - cmd: |
+          cd '{{.REPO_DIR}}'
+          mkdir '{{.UPSTREAM_NAME}}'
+          echo -e '#!/usr/bin/env bash\n\necho "Hello World!"' > '{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}'
+          git add '{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}'
+      - cmd: |
+          cd '{{.REPO_DIR}}'
+          git commit --message 'First commit to upstream "{{.UPSTREAM_NAME}}"'
+          git push --verbose '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_BRANCH}}'
+    status:
+      - '[ -f "{{.REPO_DIR}}/{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}" ]'
+      - '[ -f "{{.REPO_DIR}}/{{.UPSTREAM_JSON}}" ]'
+
+  scripts-repo-merge:
+    desc: Merge the custom scripts with the community scripts.
+    summary: |
+      This task will add a remote repo as an upstream repo to the TRMM community_scripts repo.
+
+      variables:
+      - REPO_DIR: 'community_scripts` repo directory. Default: '/srv/local/git/trmm-community-scripts'
+      - UPSTREAM_NAME: Upstream repo name. Default: 'upstream'
+      - UPSTREAM_REPO: Upstream repo URL. Required.
+      - UPSTREAM_BRANCH: Upstream branch to track.
+    vars:
+      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
+      UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
+      COMMUNITY_JSON: 'community_scripts.json'
+      UPSTREAM_JSON: 'community_scripts-{{.UPSTREAM_NAME}}.json'
+    preconditions:
+      - task: :init:all
+      - task: :install:yq
+      - sh: '[ "{{.REPO_DIR}}" != "" ]'
+        msg: 'REPO_DIR is not defined. Please set it to the community scripts directory.'
+      - sh: '! [ -f "{{.COMMUNITY_JSON}}" ]'
+        msg: 'The community JSON file "{{.COMMUNITY_JSON}}" does not exist.'
+      - sh: '! [ -f "{{.UPSTREAM_JSON}}" ]'
+        msg: 'The upstream JSON file "{{.UPSTREAM_JSON}}" does not exist.'
+    platforms: [linux]
+    cmds:
+      - cmd: 'echo "REPO_DIR: {{.REPO_DIR}}"'
+      - cmd: 'echo "COMMUNITY_JSON: {{.COMMUNITY_JSON}}"'
+      - cmd: 'echo "UPSTREAM_JSON: {{.UPSTREAM_JSON}}"'
+      # Validate both JSON files before merging.
+      - cmd: |
+          cd '{{.REPO_DIR}}'
+          yq 'true' '{{.COMMUNITY_JSON}}' --output-format=json
+      - cmd: |
+          cd '{{.REPO_DIR}}'
+          yq 'true' '{{.UPSTREAM_JSON}}' --output-format=json
+      - cmd: |
+          cd '{{.REPO_DIR}}'
+          cp '{{.COMMUNITY_JSON}}' 'tmp-{{.COMMUNITY_JSON}}'
+          yq  '. += load("{{.UPSTREAM_JSON}}")' 'tmp-{{.COMMUNITY_JSON}}' --output-format=json > '{{.COMMUNITY_JSON}}'
+          rm 'tmp-{{.COMMUNITY_JSON}}'
