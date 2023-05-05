@@ -157,7 +157,7 @@ tasks:
       - cmd: 'echo "MGMT_CMD: {{.MGMT_CMD}}"'
       - cmd: 'echo "MGMT_ARGS: {{.MGMT_ARGS}}"'
       - cmd: |
-          su -c {{.MGMT_USER}} '
+          su - {{.MGMT_USER}} -c '
             cd "{{.MGMT_DIR}}"
             source ../env/bin/activate
             python manage.py {{.MGMT_CMD}} {{.MGMT_ARGS}}
