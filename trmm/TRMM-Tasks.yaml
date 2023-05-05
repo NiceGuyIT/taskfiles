@@ -17,7 +17,7 @@ tasks:
       This task will add a remote repo as an upstream repo to the TRMM community_scripts repo.
 
       variables:
-      - REPO_DIR: 'community_scripts` repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+      - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
       - UPSTREAM_NAME: Upstream repo name. Default: '{{.TRMM_DEFAULT_UPSTREAM_NAME}}'
       - UPSTREAM_REPO: Upstream repo URL. Required.
       - UPSTREAM_BRANCH: Upstream branch to track. Default: '{{.TRMM_DEFAULT_UPSTREAM_BRANCH}}'
@@ -152,12 +152,13 @@ tasks:
         msg: 'MGMT_CMD is not defined. Please set it to the management command you want to run.'
     platforms: [linux]
     cmds:
-      - cmd: 'echo "MGMT_DIR: {{.REPO_DIR}}"'
-      - cmd: 'echo "MGMT_USER: {{.COMMUNITY_JSON}}"'
+      - cmd: 'echo "MGMT_DIR: {{.MGMT_DIR}}"'
+      - cmd: 'echo "MGMT_USER: {{.MGMT_USER}}"'
       - cmd: 'echo "MGMT_CMD: {{.MGMT_CMD}}"'
+      - cmd: 'echo "MGMT_ARGS: {{.MGMT_ARGS}}"'
       - cmd: |
           su -c {{.MGMT_USER}} '
-            cd "{{.REPO_DIR}}"
+            cd "{{.MGMT_DIR}}"
             source ../env/bin/activate
             python manage.py {{.MGMT_CMD}} {{.MGMT_ARGS}}
           '

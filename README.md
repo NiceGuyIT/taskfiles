@@ -128,6 +128,8 @@ In the documentation, names refer to variable names, `NAME`, not the Go template
 
 ## Including tasks, subdirectories and deps, preconditions and cmds
 
+Note: This is my understanding of how `task` works. I could be wrong and will update this as I learn more.
+
 To understand how to call or depend on a task in another file, you need to first understand the limitations or drawbacks
 of task.
 
