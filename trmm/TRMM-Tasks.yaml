@@ -6,6 +6,8 @@ vars:
   TRMM_DEFAULT_REPO_DIR: '/srv/local/git/trmm-community-scripts'
   TRMM_DEFAULT_UPSTREAM_NAME: 'myscripts'
   TRMM_DEFAULT_UPSTREAM_BRANCH: 'main'
+  TRMM_DEFAULT_MGMT_DIR: '/rmm/api/tacticalrmm'
+  TRMM_DEFAULT_MGMT_USER: 'tactical'
 
 tasks:
 
@@ -58,12 +60,6 @@ tasks:
     desc: Add an example and commit to the upstream repo.
     summary: |
       This task will add a "Hello World!" script to the upstream repo to be used as an example.
-
-      variables:
-      - REPO_DIR: 'community_scripts` repo directory. Default: '/srv/local/git/trmm-community-scripts'
-      - UPSTREAM_NAME: Upstream repo name. Default: 'upstream'
-      - UPSTREAM_REPO: Upstream repo URL. Required.
-      - UPSTREAM_BRANCH: Upstream branch to track.
     vars:
       REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
       UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
@@ -104,13 +100,7 @@ tasks:
   scripts-repo-merge:
     desc: Merge the custom scripts with the community scripts.
     summary: |
-      This task will add a remote repo as an upstream repo to the TRMM community_scripts repo.
-
-      variables:
-      - REPO_DIR: 'community_scripts` repo directory. Default: '/srv/local/git/trmm-community-scripts'
-      - UPSTREAM_NAME: Upstream repo name. Default: 'upstream'
-      - UPSTREAM_REPO: Upstream repo URL. Required.
-      - UPSTREAM_BRANCH: Upstream branch to track.
+      This task will merge the upstream scripts with the community scripts.
     vars:
       REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
       UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
@@ -142,3 +132,32 @@ tasks:
           cp '{{.COMMUNITY_JSON}}' 'tmp-{{.COMMUNITY_JSON}}'
           yq  '. += load("{{.UPSTREAM_JSON}}")' 'tmp-{{.COMMUNITY_JSON}}' --output-format=json > '{{.COMMUNITY_JSON}}'
           rm 'tmp-{{.COMMUNITY_JSON}}'
+
+
+  management-command-load_community_scripts:
+    desc: Run a TRMM management command in the Python console.
+    summary: |
+      This task run a TRMM management command in the Python console.
+    vars:
+      MGMT_DIR: '{{.MGMT_DIR | default .TRMM_DEFAULT_MGMT_DIR }}'
+      MGMT_USER: '{{.MGMT_USER | default .TRMM_DEFAULT_MGMT_USER }}'
+      MGMT_CMD: '{{.MGMT_CMD}}'
+      MGMT_ARGS: '{{.CLI_ARGS | default .MGMT_ARGS }}'
+    preconditions:
+      - sh: '[ "{{.MGMT_DIR}}" != "" ]'
+        msg: 'MGMT_DIR is not defined. Please set it to the directory to run the management commands.'
+      - sh: '[ "{{.MGMT_USER}}" != "" ]'
+        msg: 'MGMT_USER is not defined. Please set it to the user to run the management commands.'
+      - sh: '[ "{{.MGMT_CMD}}" != "" ]'
+        msg: 'MGMT_CMD is not defined. Please set it to the management command you want to run.'
+    platforms: [linux]
+    cmds:
+      - cmd: 'echo "MGMT_DIR: {{.REPO_DIR}}"'
+      - cmd: 'echo "MGMT_USER: {{.COMMUNITY_JSON}}"'
+      - cmd: 'echo "MGMT_CMD: {{.MGMT_CMD}}"'
+      - cmd: |
+          su -c {{.MGMT_USER}} '
+            cd "{{.REPO_DIR}}"
+            source ../env/bin/activate
+            python manage.py {{.MGMT_CMD}} {{.MGMT_ARGS}}
+          '
