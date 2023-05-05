@@ -1,0 +1,29 @@
+---
+version: '3'
+
+tasks:
+
+  user-exists:
+    desc: Check if the system (OS) user exists.
+    summary: |
+      This task will check if the given user exists.
+      
+      variables:
+       - CHECK_USER: User to check. Required.
+    vars:
+      # Note: USER conflicts with the .USER variable representing the current user.
+      CHECK_USER: '{{.CHECK_USER}}'
+    preconditions:
+      - sh: '{{ if ne OS "windows"}}command -v id{{ end }}'
+        msg: |
+          id is required to check if the user exists. Please install 'id' and try again.
+      - sh: '! [ -z {{ squote .CHECK_USER }} ]'
+        msg: |
+          CHECK_USER "{{.CHECK_USER}}" was not specified or is empty.
+    platforms: [linux]
+    cmds:
+      - cmd: |
+          if id {{ quote .CHECK_USER }} >/dev/null
+          then
+            echo {{ quote .CHECK_USER }}
+          fi

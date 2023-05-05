@@ -14,7 +14,7 @@ env:
               echo '{{.USERPROFILE}}\bin'
           fi
       {{- else -}}
-          echo '{{ if eq .USER "root"}}/usr/local/bin{{ else }}{{.HOME}}/bin{{ end }}'
+          echo '{{ if eq .USER "root" }}/usr/local/bin{{ else }}{{ .HOME }}/bin{{ end }}'
       {{- end -}}
 
 # Include all the tasks at the top level, so they can include tasks in other files. If the tasks are included in the
@@ -29,6 +29,16 @@ includes:
     optional: true
   github:
     taskfile: github/GitHub-Tasks.yaml
+    optional: true
+  json:
+    taskfile: json/JSON-Tasks.yaml
+    optional: true
+  filesystem:
+    taskfile: filesystem/Filesystem-Tasks.yaml
+    aliases: [fs]
+    optional: true
+  system:
+    taskfile: system/System-Tasks.yaml
     optional: true
   trmm:
     taskfile: trmm/TRMM-Tasks.yaml
