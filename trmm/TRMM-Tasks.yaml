@@ -163,7 +163,7 @@ tasks:
                 "guid": "525048e9-f25b-4ffc-bb13-0d098d56430e",
                 "filename": "../{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}",
                 "submittedBy": "{{.UPSTREAM_NAME}}",
-                "name": "😎 Example - Hello World",
+                "name": "🔧 Example - Hello World",
                 "description": "Hello World example to demonstrate merging community scripts.",
                 "syntax": "",
                 "args": [],
@@ -210,6 +210,7 @@ tasks:
       TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
       REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
       UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
+      PREFIX_NAME: '{{.PREFIX_NAME | default (print 😎 " " .UPSTREAM_NAME " - ") }}'
       COMMUNITY_JSON: 'community_scripts.json'
       UPSTREAM_JSON: 'community_scripts-{{.UPSTREAM_NAME}}.json'
       MGMT_CMD: 'load_community_scripts'
@@ -238,14 +239,11 @@ tasks:
             cd {{ squote .REPO_DIR }}
             yq 'true' {{ squote .UPSTREAM_JSON }} --output-format=json
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
-      # yq  'select(fileIndex == 0) + (select(fileIndex == 1) | .[].name |= ("{{.UPSTREAM_NAME}} - " + .))' {{ squote (print "tmp-" .COMMUNITY_JSON) }} --output-format=json > {{ squote .COMMUNITY_JSON }}
-      # cp {{ squote .COMMUNITY_JSON }} {{ squote (print "tmp-" .COMMUNITY_JSON) }}
-      # rm {{ squote (print "tmp-" .COMMUNITY_JSON) }}
       - cmd: |
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
             cd {{ squote .REPO_DIR }}
             yq eval-all --inplace --output-format=json \
-              'select(fileIndex == 0) + (select(fileIndex == 1) | .[].name |= ("{{.UPSTREAM_NAME}} - " + .))' \
+              'select(fileIndex == 0) + (select(fileIndex == 1) | .[].name |= ("{{.PREFIX_NAME}}" + .))' \
               {{ squote .COMMUNITY_JSON }} \
               {{ squote .UPSTREAM_JSON }}
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
