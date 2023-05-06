@@ -161,14 +161,14 @@ tasks:
             cat << 'EOJ' | yq --output-format=json --no-colors > {{ squote .UPSTREAM_JSON }} '.'
               [{
                 "guid": "525048e9-f25b-4ffc-bb13-0d098d56430e",
-                "filename": "{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}",
+                "filename": "../{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}",
                 "submittedBy": "{{.UPSTREAM_NAME}}",
-                "name": "Example - Hello World",
+                "name": "😎 Example - Hello World",
                 "description": "Hello World example to demonstrate merging community scripts.",
                 "syntax": "",
                 "args": [],
                 "default_timeout": "10",
-                "shell": "Shell",
+                "shell": "shell",
                 "supported_platforms": [
                   "linux",
                   "darwin"
@@ -238,12 +238,16 @@ tasks:
             cd {{ squote .REPO_DIR }}
             yq 'true' {{ squote .UPSTREAM_JSON }} --output-format=json
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
+      # yq  'select(fileIndex == 0) + (select(fileIndex == 1) | .[].name |= ("{{.UPSTREAM_NAME}} - " + .))' {{ squote (print "tmp-" .COMMUNITY_JSON) }} --output-format=json > {{ squote .COMMUNITY_JSON }}
+      # cp {{ squote .COMMUNITY_JSON }} {{ squote (print "tmp-" .COMMUNITY_JSON) }}
+      # rm {{ squote (print "tmp-" .COMMUNITY_JSON) }}
       - cmd: |
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
             cd {{ squote .REPO_DIR }}
-            cp {{ squote .COMMUNITY_JSON }} {{ squote (print "tmp-" .COMMUNITY_JSON) }}
-            yq  '. += load({{ quote .UPSTREAM_JSON }})' {{ squote (print "tmp-" .COMMUNITY_JSON) }} --output-format=json > {{ squote .COMMUNITY_JSON }}
-            rm {{ squote (print "tmp-" .COMMUNITY_JSON) }}
+            yq eval-all --inplace --output-format=json \
+              'select(fileIndex == 0) + (select(fileIndex == 1) | .[].name |= ("{{.UPSTREAM_NAME}} - " + .))' \
+              {{ squote .COMMUNITY_JSON }} \
+              {{ squote .UPSTREAM_JSON }}
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - task: management-command
         vars: {
