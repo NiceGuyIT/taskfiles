@@ -265,6 +265,9 @@ tasks:
     summary: |
       This task will remove the upstream repo and reset or revert the community scripts to the original. This will undo
       the 'scripts-repo-init' task.
+      Important:
+       - This task does NOT change the upstream repository!
+       - This task DOES remove the remote (custom) scripts from Tactical.
 
       variables:
        - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
@@ -274,9 +277,6 @@ tasks:
       TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
       REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
       UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
-      SCRIPT_PREFIX: '{{.SCRIPT_PREFIX | default .TRMM_DEFAULT_SCRIPT_PREFIX }}'
-      COMMUNITY_JSON: '{{.COMMUNITY_JSON | default .TRMM_DEFAULT_COMMUNITY_JSON }}'
-      UPSTREAM_JSON: '{{.UPSTREAM_JSON | default (print "community_scripts-" .UPSTREAM_NAME ".json") }}'
       MGMT_CMD: 'load_community_scripts'
     preconditions:
       - task: :init:all
@@ -288,27 +288,56 @@ tasks:
         msg: 'REPO_DIR is not defined. Please set it to the community scripts directory.'
     platforms: [linux]
     cmds:
-      - cmd: 'echo "REPO_DIR: {{.REPO_DIR}}"'
-      - cmd: 'echo "COMMUNITY_JSON: {{.COMMUNITY_JSON}}"'
-      - cmd: 'echo "UPSTREAM_JSON: {{.UPSTREAM_JSON}}"'
-      # Validate both JSON files before merging.
       - cmd: |
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
             cd {{ squote .REPO_DIR }}
-            yq 'true' {{ squote .COMMUNITY_JSON }} --output-format=json
+            git remote remove {{ squote .UPSTREAM_NAME }}
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - cmd: |
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
             cd {{ squote .REPO_DIR }}
-            yq 'true' {{ squote .UPSTREAM_JSON }} --output-format=json
+            git reset --hard origin/main
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
+      - task: management-command
+        vars: {
+          MGMT_CMD: '{{.MGMT_CMD}}',
+        }
+
+  scripts-repo-update:
+    desc: Update the local community scripts repo from the remote upstream.
+    summary: |
+      This task will update the local community scripts repo from the remote upstream of custom scripts. Local changes
+      are pushed upstream before pulling from upstream.
+
+      variables:
+       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+       - UPSTREAM_NAME: Upstream repo name. Default: '{{.TRMM_DEFAULT_UPSTREAM_NAME}}'
+    vars:
+      TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
+      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
+      UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
+      UPSTREAM_BRANCH: '{{.UPSTREAM_BRANCH | default .TRMM_DEFAULT_UPSTREAM_BRANCH }}'
+      MGMT_CMD: 'load_community_scripts'
+    preconditions:
+      - task: :init:all
+      - task: :install:yq
+      - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
+        msg: |
+          git is required to clone and work with repos. Please install 'git' and try again.
+      - sh: '[ "{{.REPO_DIR}}" != "" ]'
+        msg: 'REPO_DIR is not defined. Please set it to the community scripts directory.'
+    platforms: [linux]
+    cmds:
+      - cmd: |
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
+            git push --verbose {{ squote .UPSTREAM_NAME }} {{ squote .UPSTREAM_BRANCH }}
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - cmd: |
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
             cd {{ squote .REPO_DIR }}
-            yq eval-all --inplace --output-format=json \
-              'select(fileIndex == 0) + (select(fileIndex == 1) | .[].name |= ("{{.SCRIPT_PREFIX}}" + .))' \
-              {{ squote .COMMUNITY_JSON }} \
-              {{ squote .UPSTREAM_JSON }}
+            git reset --hard origin/main
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - task: management-command
         vars: {
@@ -331,6 +360,8 @@ tasks:
         msg: 'TRMM_USER is not defined. Please set it to the user to run the management commands.'
       - sh: '[ "{{.MGMT_CMD}}" != "" ]'
         msg: 'MGMT_CMD is not defined. Please set it to the management command you want to run.'
+      - sh: '! [ -f "/rmm/api/tacticalrmm/tacticalrmm/local_settings.py" ]'
+        msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
     platforms: [linux]
     cmds:
       - cmd: 'echo "MGMT_DIR: {{.MGMT_DIR}}"'
