@@ -158,7 +158,7 @@ tasks:
       - cmd: |
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
             cd {{ squote .REPO_DIR }}
-            cat << 'EOTJSON' | yq --output-format=json --no-colors > {{ squote .UPSTREAM_JSON }} '.'
+            cat << 'EOJ' | yq --output-format=json --no-colors > {{ squote .UPSTREAM_JSON }} '.'
               [{
                 "guid": "525048e9-f25b-4ffc-bb13-0d098d56430e",
                 "filename": "{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}",
@@ -175,21 +175,21 @@ tasks:
                 ],
                 "category": "TRMM (All):Other"
               }]
-          EOTJSON
+          EOJ
             git add {{ squote .UPSTREAM_JSON }}
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - cmd: |
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
             cd {{ squote .REPO_DIR }}
             mkdir {{ squote .UPSTREAM_NAME }}
-            cat << 'EOT' > {{ squote (print .UPSTREAM_NAME "/" .HELLO_WORLD) }}
+            cat << 'EOF' > {{ squote (print .UPSTREAM_NAME "/" .HELLO_WORLD) }}
           #!/usr/bin/env bash
 
           # Feel free to delete this example script from the directory and JSON
           # Filename: {{ squote (print .UPSTREAM_NAME "/" .HELLO_WORLD) }}
           # JSON: {{ squote .UPSTREAM_JSON }}
           echo "Hello World!"
-          EOT
+          EOF
             git add {{ squote (print .UPSTREAM_NAME "/" .HELLO_WORLD) }}
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - cmd: |
