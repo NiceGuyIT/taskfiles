@@ -103,26 +103,26 @@ tasks:
       - cmd: 'echo "UPSTREAM_REPO: {{.UPSTREAM_REPO}}"'
       - cmd: 'echo "UPSTREAM_BRANCH: {{.UPSTREAM_BRANCH}}"'
       - cmd: |
-          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
-            cd '{{.REPO_DIR}}'
-            git remote add {{ if .UPSTREAM_BRANCH }}--track '{{.UPSTREAM_BRANCH}}'{{ end }} '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_REPO}}'
-          {{ if ne .USER .TRMM_USER }}'{{ end }}
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
+            git remote add {{ if .UPSTREAM_BRANCH }}--track {{ squote .UPSTREAM_BRANCH}}{{ end }} {{ squote .UPSTREAM_NAME }} {{ squote .UPSTREAM_REPO}}
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - cmd: |
-          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
-            cd '{{.REPO_DIR}}'
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
             git remote -v
-          {{ if ne .USER .TRMM_USER }}'{{ end }}
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - cmd: |
-          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
-            cd '{{.REPO_DIR}}'
-            git push --verbose '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_BRANCH}}'
-          {{ if ne .USER .TRMM_USER }}'{{ end }}
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
+            git push --verbose {{ squote .UPSTREAM_NAME }} {{ squote .UPSTREAM_BRANCH }}
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
     status:
       - |
-        {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
-          cd '{{.REPO_DIR}}'
-          git remote -v | rg --quiet '^{{.UPSTREAM_NAME}}'
-        {{ if ne .USER .TRMM_USER }}'{{ end }}
+        {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+          cd {{ squote .REPO_DIR }}
+          git remote -v | rg --quiet {{ squote (print "^" .UPSTREAM_NAME) }}
+        {{ if ne .USER .TRMM_USER }}EOT{{ end }}
 
   scripts-repo-add-example:
     desc: Add an example and commit to the upstream repo.
@@ -156,39 +156,48 @@ tasks:
     platforms: [linux]
     cmds:
       - cmd: |
-          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
-            cd '{{.REPO_DIR}}'
-            echo '[{
-              "guid": "525048e9-f25b-4ffc-bb13-0d098d56430e",
-              "filename": "{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}",
-              "submittedBy": "{{.UPSTREAM_NAME}}",
-              "name": "Example - Hello World",
-              "description": "Hello World example to demonstrate merging community scripts.",
-              "syntax": "",
-              "args": [],
-              "default_timeout": "10",
-              "shell": "Shell",
-              "supported_platforms": [
-                "linux",
-                "darwin"
-              ],
-              "category": "TRMM (All):Other"
-            }]' | yq '.' --output-format=json --no-colors > '{{.UPSTREAM_JSON}}'
-            git add '{{.UPSTREAM_JSON}}'
-          {{ if ne .USER .TRMM_USER }}'{{ end }}
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
+            cat << 'EOT' | yq --output-format=json --no-colors > {{ squote .UPSTREAM_JSON }} '.'
+              [{
+                "guid": "525048e9-f25b-4ffc-bb13-0d098d56430e",
+                "filename": "{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}",
+                "submittedBy": "{{.UPSTREAM_NAME}}",
+                "name": "Example - Hello World",
+                "description": "Hello World example to demonstrate merging community scripts.",
+                "syntax": "",
+                "args": [],
+                "default_timeout": "10",
+                "shell": "Shell",
+                "supported_platforms": [
+                  "linux",
+                  "darwin"
+                ],
+                "category": "TRMM (All):Other"
+              }]
+          EOT
+            git add {{ squote .UPSTREAM_JSON }}
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - cmd: |
-          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
-            cd '{{.REPO_DIR}}'
-            mkdir '{{.UPSTREAM_NAME}}'
-            echo -e '#!/usr/bin/env bash\n\necho "Hello World!"' > '{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}'
-            git add '{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}'
-          {{ if ne .USER .TRMM_USER }}'{{ end }}
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
+            mkdir {{ squote .UPSTREAM_NAME }}
+            cat << 'EOT' > {{ squote (print .UPSTREAM_NAME "/" .HELLO_WORLD) }}
+          #!/usr/bin/env bash
+
+          # Feel free to delete this example script from the directory and JSON
+          # Filename: {{ squote (print .UPSTREAM_NAME "/" .HELLO_WORLD) }}
+          # JSON: {{ squote .UPSTREAM_JSON }}
+          echo "Hello World!"
+          EOT
+            git add {{ squote (print .UPSTREAM_NAME "/" .HELLO_WORLD) }}
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - cmd: |
-          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
-            cd '{{.REPO_DIR}}'
-            git commit --message 'First commit to upstream "{{.UPSTREAM_NAME}}"'
-            git push --verbose '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_BRANCH}}'
-          {{ if ne .USER .TRMM_USER }}'{{ end }}
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
+            git commit --message 'First commit to upstream {{ quote .UPSTREAM_NAME }}'
+            git push --verbose {{ squote .UPSTREAM_NAME }} {{ squote .UPSTREAM_BRANCH }}
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
     status:
       - '[ -f "{{.REPO_DIR}}/{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}" ]'
       - '[ -f "{{.REPO_DIR}}/{{.UPSTREAM_JSON}}" ]'
@@ -220,22 +229,22 @@ tasks:
       - cmd: 'echo "UPSTREAM_JSON: {{.UPSTREAM_JSON}}"'
       # Validate both JSON files before merging.
       - cmd: |
-          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
-            cd '{{.REPO_DIR}}'
-            yq 'true' '{{.COMMUNITY_JSON}}' --output-format=json
-          {{ if ne .USER .TRMM_USER }}'{{ end }}
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
+            yq 'true' {{ squote .COMMUNITY_JSON }} --output-format=json
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - cmd: |
-          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
-            cd '{{.REPO_DIR}}'
-            yq 'true' '{{.UPSTREAM_JSON}}' --output-format=json
-          {{ if ne .USER .TRMM_USER }}'{{ end }}
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
+            yq 'true' {{ squote .UPSTREAM_JSON }} --output-format=json
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - cmd: |
-          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
-            cd '{{.REPO_DIR}}'
-            cp '{{.COMMUNITY_JSON}}' 'tmp-{{.COMMUNITY_JSON}}'
-            yq  '. += load("{{.UPSTREAM_JSON}}")' 'tmp-{{.COMMUNITY_JSON}}' --output-format=json > '{{.COMMUNITY_JSON}}'
-            rm 'tmp-{{.COMMUNITY_JSON}}'
-          {{ if ne .USER .TRMM_USER }}'{{ end }}
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
+            cp {{ squote .COMMUNITY_JSON }} {{ squote (print "tmp-" .COMMUNITY_JSON) }}
+            yq  '. += load({{ quote .UPSTREAM_JSON }})' {{ squote (print "tmp-" .COMMUNITY_JSON) }} --output-format=json > {{ squote .COMMUNITY_JSON }}
+            rm {{ squote (print "tmp-" .COMMUNITY_JSON) }}
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - task: management-command
         vars: {
           MGMT_CMD: '{{.MGMT_CMD}}',
@@ -264,8 +273,8 @@ tasks:
       - cmd: 'echo "MGMT_CMD: {{.MGMT_CMD}}"'
       - cmd: 'echo "MGMT_ARGS: {{.MGMT_ARGS}}"'
       - cmd: |
-          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
-            cd "{{.MGMT_DIR}}"
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .MGMT_DIR }}
             source ../env/bin/activate
             python manage.py {{.MGMT_CMD}} {{.MGMT_ARGS}}
-          {{ if ne .USER .TRMM_USER }}'{{ end }}
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
