@@ -54,64 +54,6 @@ tasks:
     status:
       - "'{{.BIN_NAME}}' --version"
 
-  dl-xh:
-    # https://github.com/ducaale/xh
-    desc: Download 'xh' into the bin directory
-    deps:
-      - create-bin-dir
-      - dl-yq
-    vars:
-      NAME: xh
-      OWNER: ducaale
-      REPO: '{{.OWNER}}/{{.NAME}}'
-      FILE_NAME: '{{.NAME}}{{exeExt}}'
-      BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
-      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
-      REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
-      # Some packages use x86_64 instead of amd64
-      ARCH: '{{ if or (eq ARCH "amd64") (eq ARCH "arm64") }}x86_64{{ else }}{{ARCH}}{{ end }}'
-      ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}*{{.COMPRESS_EXT}}'
-      DOWNLOAD_URL:
-        sh: |
-          curl --silent --location --output - '{{.REPO_URL}}' |
-          yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .browser_download_url'
-      PACKAGE_NAME:
-        sh: |
-          curl --silent --location --output - '{{.REPO_URL}}' |
-          yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .name'
-      PACKAGE_DIR: '{{ trimSuffix .COMPRESS_EXT .PACKAGE_NAME }}'
-    preconditions:
-      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
-        msg: |
-          curl is required to download files. Please install 'curl' and try again.
-      - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
-        msg: |
-          tar is required to extract files from archives. Please install 'tar' and try again.
-      - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
-        msg: |
-          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
-    cmds:
-      - cmd: |
-          {{ if eq OS "windows"}}
-            powershell -Command '
-              $tmp_file = New-TemporaryFile
-              Remove-Item -Path $tmp_file
-              $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
-              $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
-              $ProgressPreference = "SilentlyContinue"
-              Invoke-WebRequest -URI "{{.REPO_URL}}" -OutFile $zip_file
-              Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-              Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}") -Destination {{.BIN_DIR}}
-              Remove-Item -Path $tmp_dir -Recurse
-            '
-          {{ else }}
-            curl --silent --location --output - '{{.DOWNLOAD_URL}}' |
-            tar --directory '{{.BIN_DIR}}' --strip-components 1 -zxf - '{{.PACKAGE_DIR}}/{{.FILE_NAME}}'
-            chmod a+x '{{.BIN_NAME}}'
-          {{ end }}
-    status:
-      - "'{{.BIN_NAME}}' --version"
-
   dl-task:
     # https://github.com/go-task/task/
     desc: Download 'task' into the bin directory
@@ -155,6 +97,69 @@ tasks:
             curl --location --output - '{{.REPO_URL}}' |
             tar -C '{{.BIN_DIR}}' -zxf - {{.NAME}}
             chmod a+x {{.BIN_NAME}}
+          {{ end }}
+    status:
+      - "'{{.BIN_NAME}}' --version"
+
+  dl-xh:
+    # https://github.com/ducaale/xh
+    desc: Download 'xh' into the bin directory
+    deps:
+      - create-bin-dir
+      - dl-yq
+    vars:
+      NAME: xh
+      OWNER: ducaale
+      REPO: '{{.OWNER}}/{{.NAME}}'
+      FILE_NAME: '{{.NAME}}{{exeExt}}'
+      BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+      REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
+      # Some packages use x86_64 instead of amd64
+      ARCH: '{{ if or (eq ARCH "amd64") (eq ARCH "arm64") }}x86_64{{ else }}{{ARCH}}{{ end }}'
+      ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}*{{.COMPRESS_EXT}}'
+      # FIXME: The dynamic variables are executed before determining the status, resulting in 2 unauthenticated calls
+      # FIXME: to the GitHub API. This should be fixed.
+      # FIXME: More importantly, tasks that depend on 'xh' will also result in 2 API calls.
+      # FIXME: If many tasks are run concurrently, it's possible to exceed the API limits and get locked out for a
+      # FIXME: minute.
+      DOWNLOAD_URL:
+        sh: |
+          curl --silent --location --output - '{{.REPO_URL}}' |
+          yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .browser_download_url'
+      PACKAGE_NAME:
+        sh: |
+          curl --silent --location --output - '{{.REPO_URL}}' |
+          yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .name'
+      PACKAGE_DIR: '{{ trimSuffix .COMPRESS_EXT .PACKAGE_NAME }}'
+    preconditions:
+      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
+        msg: |
+          curl is required to download files. Please install 'curl' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
+        msg: |
+          tar is required to extract files from archives. Please install 'tar' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
+        msg: |
+          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
+    cmds:
+      - cmd: |
+          {{ if eq OS "windows"}}
+            powershell -Command '
+              $tmp_file = New-TemporaryFile
+              Remove-Item -Path $tmp_file
+              $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
+              $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
+              $ProgressPreference = "SilentlyContinue"
+              Invoke-WebRequest -URI "{{.REPO_URL}}" -OutFile $zip_file
+              Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
+              Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}") -Destination {{.BIN_DIR}}
+              Remove-Item -Path $tmp_dir -Recurse
+            '
+          {{ else }}
+            curl --silent --location --output - '{{.DOWNLOAD_URL}}' |
+            tar --directory '{{.BIN_DIR}}' --strip-components 1 -zxf - '{{.PACKAGE_DIR}}/{{.FILE_NAME}}'
+            chmod a+x '{{.BIN_NAME}}'
           {{ end }}
     status:
       - "'{{.BIN_NAME}}' --version"

@@ -3,13 +3,71 @@ version: '3'
 
 # Variables are global with precedence hierarchy.
 vars:
-  TRMM_DEFAULT_REPO_DIR: '/srv/local/git/trmm-community-scripts'
+  TRMM_DEFAULT_REPO_DIR: '/opt/trmm-community-scripts/'
   TRMM_DEFAULT_UPSTREAM_NAME: 'myscripts'
   TRMM_DEFAULT_UPSTREAM_BRANCH: 'main'
+  TRMM_DEFAULT_USER: 'tactical'
   TRMM_DEFAULT_MGMT_DIR: '/rmm/api/tacticalrmm'
-  TRMM_DEFAULT_MGMT_USER: 'tactical'
 
 tasks:
+
+  scripts-repo-init:
+    desc: Add and initialize an upstream repo to the Tactical RMM community scripts.
+    summary: |
+      This task will add a remote repo as an upstream repo to the TRMM community_scripts.
+      The community scripts will be pushed to the new repo.
+      An example "Hello World!" script and JSON will be added and pushed to the remote repo.
+      The two JSON files defining the community script and the scripts in the upstream repo
+        will be merged.
+      Finally, the scripts are loaded into Tactical RMM to be made available in the
+        script manager.
+
+      variables:
+       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+       - UPSTREAM_REPO: Upstream repo URL. Required.
+       - UPSTREAM_NAME: Upstream repo name. Default: '{{.TRMM_DEFAULT_UPSTREAM_NAME}}'
+       - UPSTREAM_BRANCH: Upstream branch to track. Default: '{{.TRMM_DEFAULT_UPSTREAM_BRANCH}}'
+    vars:
+      TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
+      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
+      UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
+      UPSTREAM_BRANCH: '{{.UPSTREAM_BRANCH | default .TRMM_DEFAULT_UPSTREAM_BRANCH }}'
+    platforms: [linux]
+    deps:
+      - :install:rg
+    preconditions:
+      - sh: '[ "{{.REPO_DIR}}" != "" ]'
+        msg: REPO_DIR is not defined. Please set it to the community scripts directory.
+      - sh: '[ "{{.UPSTREAM_REPO}}" != "" ]'
+        msg: UPSTREAM_REPO is not defined. Please set it to the upstream git repo for your scripts.
+    cmds:
+      - cmd: 'echo "TRMM_USER: {{.TRMM_USER}}"'
+      - cmd: 'echo "REPO_DIR: {{.REPO_DIR}}"'
+      - cmd: 'echo "UPSTREAM_NAME: {{.UPSTREAM_NAME}}"'
+      - cmd: 'echo "UPSTREAM_REPO: {{.UPSTREAM_REPO}}"'
+      - cmd: 'echo "UPSTREAM_BRANCH: {{.UPSTREAM_BRANCH}}"'
+      - task: scripts-repo-add-upstream
+        vars: {
+          TRMM_USER: '{{.TRMM_USER }}',
+          REPO_DIR: '{{.REPO_DIR }}',
+          UPSTREAM_NAME: '{{.UPSTREAM_NAME }}',
+          UPSTREAM_BRANCH: '{{.UPSTREAM_BRANCH }}',
+        }
+      - task: scripts-repo-add-example
+        vars: {
+          TRMM_USER: '{{.TRMM_USER }}',
+          REPO_DIR: '{{.REPO_DIR }}',
+          UPSTREAM_NAME: '{{.UPSTREAM_NAME }}',
+          UPSTREAM_BRANCH: '{{.UPSTREAM_BRANCH }}',
+        }
+      - task: scripts-repo-merge
+        vars: {
+          TRMM_USER: '{{.TRMM_USER }}',
+          REPO_DIR: '{{.REPO_DIR }}',
+          UPSTREAM_NAME: '{{.UPSTREAM_NAME }}',
+          UPSTREAM_BRANCH: '{{.UPSTREAM_BRANCH }}',
+        }
 
   scripts-repo-add-upstream:
     desc: Add an upstream repo to the Tactical RMM community scripts.
@@ -17,14 +75,15 @@ tasks:
       This task will add a remote repo as an upstream repo to the TRMM community_scripts repo.
 
       variables:
-      - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
-      - UPSTREAM_NAME: Upstream repo name. Default: '{{.TRMM_DEFAULT_UPSTREAM_NAME}}'
-      - UPSTREAM_REPO: Upstream repo URL. Required.
-      - UPSTREAM_BRANCH: Upstream branch to track. Default: '{{.TRMM_DEFAULT_UPSTREAM_BRANCH}}'
+       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+       - UPSTREAM_REPO: Upstream repo URL. Required.
+       - UPSTREAM_NAME: Upstream repo name. Default: '{{.TRMM_DEFAULT_UPSTREAM_NAME}}'
+       - UPSTREAM_BRANCH: Upstream branch to track. Default: '{{.TRMM_DEFAULT_UPSTREAM_BRANCH}}'
     vars:
+      TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
       REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
       UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
-      UPSTREAM_REPO: '{{.UPSTREAM_REPO}}'
       UPSTREAM_BRANCH: '{{.UPSTREAM_BRANCH | default .TRMM_DEFAULT_UPSTREAM_BRANCH }}'
     platforms: [linux]
     deps:
@@ -32,35 +91,51 @@ tasks:
     preconditions:
       - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
         msg: |
-          git is required to clone repos. Please install 'git' and try again.
+          git is required to clone and work with repos. Please install 'git' and try again.
       - sh: '[ "{{.REPO_DIR}}" != "" ]'
-        msg: 'REPO_DIR is not defined. Please set it to the community scripts directory.'
+        msg: REPO_DIR is not defined. Please set it to the community scripts directory.
       - sh: '[ "{{.UPSTREAM_REPO}}" != "" ]'
-        msg: 'UPSTREAM_REPO is not defined. Please set it to a git repo to be used as an upstream.'
+        msg: UPSTREAM_REPO is not defined. Please set it to the upstream git repo for your scripts.
     cmds:
+      - cmd: 'echo "TRMM_USER: {{.TRMM_USER}}"'
       - cmd: 'echo "REPO_DIR: {{.REPO_DIR}}"'
       - cmd: 'echo "UPSTREAM_NAME: {{.UPSTREAM_NAME}}"'
       - cmd: 'echo "UPSTREAM_REPO: {{.UPSTREAM_REPO}}"'
       - cmd: 'echo "UPSTREAM_BRANCH: {{.UPSTREAM_BRANCH}}"'
       - cmd: |
-          cd '{{.REPO_DIR}}'
-          git remote add {{ if .UPSTREAM_BRANCH }}--track '{{.UPSTREAM_BRANCH}}'{{ end }} '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_REPO}}'
+          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
+            cd '{{.REPO_DIR}}'
+            git remote add {{ if .UPSTREAM_BRANCH }}--track '{{.UPSTREAM_BRANCH}}'{{ end }} '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_REPO}}'
+          {{ if ne .USER .TRMM_USER }}'{{ end }}
       - cmd: |
-          cd '{{.REPO_DIR}}'
-          git remote -v
+          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
+            cd '{{.REPO_DIR}}'
+            git remote -v
+          {{ if ne .USER .TRMM_USER }}'{{ end }}
       - cmd: |
-          cd '{{.REPO_DIR}}'
-          git push --verbose '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_BRANCH}}'
+          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
+            cd '{{.REPO_DIR}}'
+            git push --verbose '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_BRANCH}}'
+          {{ if ne .USER .TRMM_USER }}'{{ end }}
     status:
       - |
-        cd '{{.REPO_DIR}}'
-        git remote -v | rg --quiet '^{{.UPSTREAM_NAME}}'
+        {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
+          cd '{{.REPO_DIR}}'
+          git remote -v | rg --quiet '^{{.UPSTREAM_NAME}}'
+        {{ if ne .USER .TRMM_USER }}'{{ end }}
 
   scripts-repo-add-example:
     desc: Add an example and commit to the upstream repo.
     summary: |
       This task will add a "Hello World!" script to the upstream repo to be used as an example.
+
+      variables:
+       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+       - UPSTREAM_NAME: Upstream repo name. Default: '{{.TRMM_DEFAULT_UPSTREAM_NAME}}'
+       - UPSTREAM_BRANCH: Upstream branch to track. Default: '{{.TRMM_DEFAULT_UPSTREAM_BRANCH}}'
     vars:
+      TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
       REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
       UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
       UPSTREAM_BRANCH: '{{.UPSTREAM_BRANCH | default .TRMM_DEFAULT_UPSTREAM_BRANCH }}'
@@ -81,18 +156,39 @@ tasks:
     platforms: [linux]
     cmds:
       - cmd: |
-          cd '{{.REPO_DIR}}'
-          echo '[{}]' > '{{.UPSTREAM_JSON}}'
-          git add '{{.UPSTREAM_JSON}}'
+          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
+            cd '{{.REPO_DIR}}'
+            echo '[{
+              "guid": "525048e9-f25b-4ffc-bb13-0d098d56430e",
+              "filename": "{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}",
+              "submittedBy": "{{.UPSTREAM_NAME}}",
+              "name": "Example - Hello World",
+              "description": "Hello World example to demonstrate merging community scripts.",
+              "syntax": "",
+              "args": [],
+              "default_timeout": "10",
+              "shell": "Shell",
+              "supported_platforms": [
+                "linux",
+                "darwin"
+              ],
+              "category": "TRMM (All):Other"
+            }]' | yq '.' --output-format=json --no-colors > '{{.UPSTREAM_JSON}}'
+            git add '{{.UPSTREAM_JSON}}'
+          {{ if ne .USER .TRMM_USER }}'{{ end }}
       - cmd: |
-          cd '{{.REPO_DIR}}'
-          mkdir '{{.UPSTREAM_NAME}}'
-          echo -e '#!/usr/bin/env bash\n\necho "Hello World!"' > '{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}'
-          git add '{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}'
+          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
+            cd '{{.REPO_DIR}}'
+            mkdir '{{.UPSTREAM_NAME}}'
+            echo -e '#!/usr/bin/env bash\n\necho "Hello World!"' > '{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}'
+            git add '{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}'
+          {{ if ne .USER .TRMM_USER }}'{{ end }}
       - cmd: |
-          cd '{{.REPO_DIR}}'
-          git commit --message 'First commit to upstream "{{.UPSTREAM_NAME}}"'
-          git push --verbose '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_BRANCH}}'
+          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
+            cd '{{.REPO_DIR}}'
+            git commit --message 'First commit to upstream "{{.UPSTREAM_NAME}}"'
+            git push --verbose '{{.UPSTREAM_NAME}}' '{{.UPSTREAM_BRANCH}}'
+          {{ if ne .USER .TRMM_USER }}'{{ end }}
     status:
       - '[ -f "{{.REPO_DIR}}/{{.UPSTREAM_NAME}}/{{.HELLO_WORLD}}" ]'
       - '[ -f "{{.REPO_DIR}}/{{.UPSTREAM_JSON}}" ]'
@@ -102,6 +198,7 @@ tasks:
     summary: |
       This task will merge the upstream scripts with the community scripts.
     vars:
+      TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
       REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
       UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
       COMMUNITY_JSON: 'community_scripts.json'
@@ -123,16 +220,22 @@ tasks:
       - cmd: 'echo "UPSTREAM_JSON: {{.UPSTREAM_JSON}}"'
       # Validate both JSON files before merging.
       - cmd: |
-          cd '{{.REPO_DIR}}'
-          yq 'true' '{{.COMMUNITY_JSON}}' --output-format=json
+          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
+            cd '{{.REPO_DIR}}'
+            yq 'true' '{{.COMMUNITY_JSON}}' --output-format=json
+          {{ if ne .USER .TRMM_USER }}'{{ end }}
       - cmd: |
-          cd '{{.REPO_DIR}}'
-          yq 'true' '{{.UPSTREAM_JSON}}' --output-format=json
+          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
+            cd '{{.REPO_DIR}}'
+            yq 'true' '{{.UPSTREAM_JSON}}' --output-format=json
+          {{ if ne .USER .TRMM_USER }}'{{ end }}
       - cmd: |
-          cd '{{.REPO_DIR}}'
-          cp '{{.COMMUNITY_JSON}}' 'tmp-{{.COMMUNITY_JSON}}'
-          yq  '. += load("{{.UPSTREAM_JSON}}")' 'tmp-{{.COMMUNITY_JSON}}' --output-format=json > '{{.COMMUNITY_JSON}}'
-          rm 'tmp-{{.COMMUNITY_JSON}}'
+          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
+            cd '{{.REPO_DIR}}'
+            cp '{{.COMMUNITY_JSON}}' 'tmp-{{.COMMUNITY_JSON}}'
+            yq  '. += load("{{.UPSTREAM_JSON}}")' 'tmp-{{.COMMUNITY_JSON}}' --output-format=json > '{{.COMMUNITY_JSON}}'
+            rm 'tmp-{{.COMMUNITY_JSON}}'
+          {{ if ne .USER .TRMM_USER }}'{{ end }}
       - task: management-command
         vars: {
           MGMT_CMD: '{{.MGMT_CMD}}',
@@ -144,25 +247,25 @@ tasks:
       This task run a TRMM management command in the Python console.
     vars:
       MGMT_DIR: '{{.MGMT_DIR | default .TRMM_DEFAULT_MGMT_DIR }}'
-      MGMT_USER: '{{.MGMT_USER | default .TRMM_DEFAULT_MGMT_USER }}'
+      TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
       MGMT_CMD: '{{.MGMT_CMD}}'
       MGMT_ARGS: '{{.CLI_ARGS | default .MGMT_ARGS }}'
     preconditions:
       - sh: '[ "{{.MGMT_DIR}}" != "" ]'
         msg: 'MGMT_DIR is not defined. Please set it to the directory to run the management commands.'
-      - sh: '[ "{{.MGMT_USER}}" != "" ]'
-        msg: 'MGMT_USER is not defined. Please set it to the user to run the management commands.'
+      - sh: '[ "{{.TRMM_USER}}" != "" ]'
+        msg: 'TRMM_USER is not defined. Please set it to the user to run the management commands.'
       - sh: '[ "{{.MGMT_CMD}}" != "" ]'
         msg: 'MGMT_CMD is not defined. Please set it to the management command you want to run.'
     platforms: [linux]
     cmds:
       - cmd: 'echo "MGMT_DIR: {{.MGMT_DIR}}"'
-      - cmd: 'echo "MGMT_USER: {{.MGMT_USER}}"'
+      - cmd: 'echo "TRMM_USER: {{.TRMM_USER}}"'
       - cmd: 'echo "MGMT_CMD: {{.MGMT_CMD}}"'
       - cmd: 'echo "MGMT_ARGS: {{.MGMT_ARGS}}"'
       - cmd: |
-          {{ if ne .USER .MGMT_USER }}su - {{.MGMT_USER}} -c '{{ end }}
+          {{ if ne .USER .TRMM_USER }}su - {{.TRMM_USER}} -c '{{ end }}
             cd "{{.MGMT_DIR}}"
             source ../env/bin/activate
             python manage.py {{.MGMT_CMD}} {{.MGMT_ARGS}}
-          {{ if eq .USER "root" }}'{{ end }}
+          {{ if ne .USER .TRMM_USER }}'{{ end }}
