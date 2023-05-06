@@ -8,6 +8,8 @@ vars:
   TRMM_DEFAULT_UPSTREAM_BRANCH: 'main'
   TRMM_DEFAULT_USER: 'tactical'
   TRMM_DEFAULT_MGMT_DIR: '/rmm/api/tacticalrmm'
+  TRMM_DEFAULT_COMMUNITY_JSON: 'community_scripts.json'
+  TRMM_DEFAULT_SCRIPT_PREFIX: '😎 {{.TRMM_DEFAULT_UPSTREAM_NAME}} - '
 
 tasks:
 
@@ -206,11 +208,17 @@ tasks:
     desc: Merge the custom scripts with the community scripts.
     summary: |
       This task will merge the upstream scripts with the community scripts.
+
+      variables:
+       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+       - UPSTREAM_NAME: Upstream repo name. Default: '{{.TRMM_DEFAULT_UPSTREAM_NAME}}'
+       - SCRIPT_PREFIX: Prefix name for all upstream scripts. Default: '{{.TRMM_DEFAULT_SCRIPT_PREFIX}}'
     vars:
       TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
       REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
       UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
-      PREFIX_NAME: '{{.PREFIX_NAME | default (print 😎 " " .UPSTREAM_NAME " - ") }}'
+      SCRIPT_PREFIX: '{{.SCRIPT_PREFIX | default .TRMM_DEFAULT_SCRIPT_PREFIX }}'
       COMMUNITY_JSON: 'community_scripts.json'
       UPSTREAM_JSON: 'community_scripts-{{.UPSTREAM_NAME}}.json'
       MGMT_CMD: 'load_community_scripts'
@@ -243,7 +251,62 @@ tasks:
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
             cd {{ squote .REPO_DIR }}
             yq eval-all --inplace --output-format=json \
-              'select(fileIndex == 0) + (select(fileIndex == 1) | .[].name |= ("{{.PREFIX_NAME}}" + .))' \
+              'select(fileIndex == 0) + (select(fileIndex == 1) | .[].name |= ("{{.SCRIPT_PREFIX}}" + .))' \
+              {{ squote .COMMUNITY_JSON }} \
+              {{ squote .UPSTREAM_JSON }}
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
+      - task: management-command
+        vars: {
+          MGMT_CMD: '{{.MGMT_CMD}}',
+        }
+
+  scripts-repo-reset:
+    desc: Remove the upstream repo and reset the community scripts.
+    summary: |
+      This task will remove the upstream repo and reset or revert the community scripts to the original. This will undo
+      the 'scripts-repo-init' task.
+
+      variables:
+       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+       - UPSTREAM_NAME: Upstream repo name. Default: '{{.TRMM_DEFAULT_UPSTREAM_NAME}}'
+    vars:
+      TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
+      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
+      UPSTREAM_NAME: '{{.UPSTREAM_NAME | default .TRMM_DEFAULT_UPSTREAM_NAME }}'
+      SCRIPT_PREFIX: '{{.SCRIPT_PREFIX | default .TRMM_DEFAULT_SCRIPT_PREFIX }}'
+      COMMUNITY_JSON: '{{.COMMUNITY_JSON | default .TRMM_DEFAULT_COMMUNITY_JSON }}'
+      UPSTREAM_JSON: '{{.UPSTREAM_JSON | default (print "community_scripts-" .UPSTREAM_NAME ".json") }}'
+      MGMT_CMD: 'load_community_scripts'
+    preconditions:
+      - task: :init:all
+      - task: :install:yq
+      - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
+        msg: |
+          git is required to clone and work with repos. Please install 'git' and try again.
+      - sh: '[ "{{.REPO_DIR}}" != "" ]'
+        msg: 'REPO_DIR is not defined. Please set it to the community scripts directory.'
+    platforms: [linux]
+    cmds:
+      - cmd: 'echo "REPO_DIR: {{.REPO_DIR}}"'
+      - cmd: 'echo "COMMUNITY_JSON: {{.COMMUNITY_JSON}}"'
+      - cmd: 'echo "UPSTREAM_JSON: {{.UPSTREAM_JSON}}"'
+      # Validate both JSON files before merging.
+      - cmd: |
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
+            yq 'true' {{ squote .COMMUNITY_JSON }} --output-format=json
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
+      - cmd: |
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
+            yq 'true' {{ squote .UPSTREAM_JSON }} --output-format=json
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
+      - cmd: |
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            cd {{ squote .REPO_DIR }}
+            yq eval-all --inplace --output-format=json \
+              'select(fileIndex == 0) + (select(fileIndex == 1) | .[].name |= ("{{.SCRIPT_PREFIX}}" + .))' \
               {{ squote .COMMUNITY_JSON }} \
               {{ squote .UPSTREAM_JSON }}
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
