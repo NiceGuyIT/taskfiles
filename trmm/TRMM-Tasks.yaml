@@ -5,7 +5,10 @@ version: '3'
 vars:
   TRMM_DEFAULT_REPO_DIR: '/opt/trmm-community-scripts/'
   TRMM_DEFAULT_MGMT_DIR: '/rmm/api/tacticalrmm'
+  TRMM_DEFAULT_LOCAL_SETTINGS: '/rmm/api/tacticalrmm/tacticalrmm/local_settings.py'
   TRMM_DEFAULT_USER: 'tactical'
+  TRMM_DEFAULT_POSTGRES_USER: 'postgres'
+  TRMM_DEFAULT_POSTGRES_DB: 'tacticalrmm'
   TRMM_DEFAULT_COMMUNITY_JSON: 'community_scripts.json'
   TRMM_DEFAULT_SCRIPT_PREFIX: '😎 My Scripts - '
 
@@ -125,6 +128,63 @@ tasks:
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - task: management-command-load-community-scripts
 
+  scripts-database-export:
+    desc: Export your scripts from the database.
+    summary: |
+      This task will export your scripts in the database to files in the current directory.
+
+      variables:
+       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+    vars:
+      POSTGRES_USER: '{{.POSTGRES_USER | default .TRMM_DEFAULT_POSTGRES_USER }}'
+      POSTGRES_DB: '{{.POSTGRES_DB | default .TRMM_DEFAULT_POSTGRES_DB }}'
+      RESULTS_JSON:
+        sh: |
+          mktemp
+      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
+    preconditions:
+      - task: :install:yq
+      - sh: '{{ if ne OS "windows"}}command -v psql{{ end }}'
+        msg: |
+          psql is required to export data from the database. Please install 'psql' and try again.
+      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
+        msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
+    platforms: [linux]
+    cmds:
+      - cmd: |
+          {{ if eq .USER "root" }}chown {{.POSTGRES_USER}} {{ squote .RESULTS_JSON }}{{ end }}
+          {{ if ne .USER .POSTGRES_USER }}su {{.POSTGRES_USER}} << 'EOT'{{ end }}
+            cat << 'EOSQL' | psql --quiet {{.POSTGRES_DB}} | yq '.' > {{ squote .RESULTS_JSON }}
+              \t\a
+              select json_agg(j)
+              from (
+                select
+                  guid,
+                  filename,
+                  created_by as "submittedBy",
+                  name,
+                  description,
+                  syntax,
+                  args,
+                  default_timeout,
+                  shell,
+                  supported_platforms,
+                  category
+                  -- script_type is not needed in the output
+                  -- env_vars are not supported in the JSON
+                  -- hidden is not in the JSON
+                  -- run_as_user is not in the JSON
+                  -- favorite is not in the JSON
+                from scripts_script
+                where script_type = 'userdefined'
+                limit 50
+              ) as j
+          EOSQL
+          {{ if ne .USER .POSTGRES_USER }}EOT{{ end }}
+#      - cmd: |
+#          yq '.' {{ squote .RESULTS_JSON }}
+
   management-command-load-community-scripts:
     desc: Load the TRMM community scripts into the database.
     summary: |
@@ -134,7 +194,7 @@ tasks:
       TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
       MGMT_CMD: 'load_community_scripts'
     preconditions:
-      - sh: '! [ -f "/rmm/api/tacticalrmm/tacticalrmm/local_settings.py" ]'
+      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
         msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
     platforms: [linux]
     cmds:
@@ -161,7 +221,7 @@ tasks:
         msg: 'TRMM_USER is not defined. Please set it to the user to run the management commands.'
       - sh: '[ {{ quote MGMT_CMD }} != "" ]'
         msg: 'MGMT_CMD is not defined. Please set it to the management command you want to run.'
-      - sh: '! [ -f "/rmm/api/tacticalrmm/tacticalrmm/local_settings.py" ]'
+      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
         msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
     platforms: [linux]
     cmds:
