@@ -33,11 +33,11 @@ tasks:
       PACKAGE_DIR: '{{.PACKAGE_DIR | default (trimSuffix .COMPRESS_EXT .PACKAGE_NAME) }}'
     preconditions:
       - task: :init:all
-      - sh: '[ "{{.NAME}}" != "" ]'
+      - sh: '[ {{ quote NAME }} != "" ]'
         msg: '.NAME is not defined'
-      - sh: '[ "{{.OWNER}}" != "" ]'
+      - sh: '[ {{ quote OWNER }} != "" ]'
         msg: '.OWNER is not defined'
-      - sh: '[ "{{.ASSET_PATTERN}}" != "" ]'
+      - sh: '[ {{ quote ASSET_PATTERN }} != "" ]'
         msg: '.ASSET_PATTERN is not defined'
       - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
         msg: |
@@ -83,17 +83,17 @@ tasks:
     desc: Download an asset from GitHub
     preconditions:
       - task: :init:all
-      - sh: '[ "{{.PACKAGE_NAME}}" != "" ]'
+      - sh: '[ {{ quote PACKAGE_NAME }} != "" ]'
         msg: '.PACKAGE_NAME is not defined'
-      - sh: '[ "{{.PACKAGE_DIR}}" != "" ]'
+      - sh: '[ {{ quote PACKAGE_DIR }} != "" ]'
         msg: '.PACKAGE_DIR is not defined'
-      - sh: '[ "{{.DOWNLOAD_URL}}" != "" ]'
+      - sh: '[ {{ quote DOWNLOAD_URL }} != "" ]'
         msg: '.DOWNLOAD_URL is not defined'
-      - sh: '[ "{{.FILE_NAME}}" != "" ]'
+      - sh: '[ {{ quote FILE_NAME }} != "" ]'
         msg: '.FILE_NAME is not defined'
-      - sh: '[ "{{.BIN_NAME}}" != "" ]'
+      - sh: '[ {{ quote BIN_NAME }} != "" ]'
         msg: '.BIN_NAME is not defined'
-      - sh: 'test -d "{{.BIN_DIR}}"'
+      - sh: 'test -d {{ quote BIN_DIR }}'
         msg: '{{.BIN_DIR}} does not exist'
       - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
         msg: |
@@ -125,9 +125,9 @@ tasks:
             $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
             $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.BASE_NAME}}{{.COMPRESS_EXT}}"
             $ProgressPreference = "SilentlyContinue"
-            Invoke-WebRequest -URI "{{.REPO_URL}}" -OutFile $zip_file
+            Invoke-WebRequest -URI {{ quote REPO_URL }} -OutFile $zip_file
             Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-            Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}") -Destination {{.BIN_DIR}}
+            Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath {{ quote NAME }}) -Destination {{.BIN_DIR}}
             Remove-Item -Path $tmp_dir -Recurse
           '
         platforms: [windows]
@@ -158,9 +158,9 @@ tasks:
     # internal: true
     desc: Get an attribute using the GitHub API. Internal only.
     preconditions:
-      - sh: '[ "{{.REPO_URL}}" != "" ]'
-      - sh: '[ "{{.ASSET_PATTERN}}" != "" ]'
-      - sh: '[ "{{.ATTRIBUTE}}" != "" ]'
+      - sh: '[ {{ quote REPO_URL }} != "" ]'
+      - sh: '[ {{ quote ASSET_PATTERN }} != "" ]'
+      - sh: '[ {{ quote ATTRIBUTE }} != "" ]'
       - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
       - sh: '{{ if ne OS "windows"}}command -v yq{{ end }}'
     cmds:
@@ -170,7 +170,7 @@ tasks:
       - cmd: |
           declare -a asset=($(
             curl --silent --location --output - '{{.REPO_URL}}' |
-            yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .{{.ATTRIBUTE}}'
+            yq --unwrapScalar '.assets[] | select(.name=={{ quote ASSET_PATTERN }}) | .{{.ATTRIBUTE}}'
           ))
           if [[ ${#asset[@]} -ne 1 ]]; then
             echo 'ASSET_PATTERN did not match exactly 1 asset. Please check the ASSET_PATTERN for correctness.'

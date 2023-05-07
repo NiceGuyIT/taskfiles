@@ -33,6 +33,13 @@ includes:
   trmm:
     taskfile: trmm/TRMM-Tasks.yaml
     optional: true
+  json:
+    taskfile: json/JSON-Tasks.yaml
+    optional: true
+  filesystem:
+    taskfile: filesystem/Filesystem-Tasks.yaml
+    aliases: [fs]
+    optional: true
 
 tasks:
   donothing: 'true'

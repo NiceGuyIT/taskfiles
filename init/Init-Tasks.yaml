@@ -18,7 +18,7 @@ tasks:
   create-bin-dir:
     desc: Create the bin directory
     preconditions:
-      - sh: '[ "{{.BIN_DIR}}" != "" ]'
+      - sh: '[ {{ quote BIN_DIR }} != "" ]'
         msg: '.BIN_DIR is not defined'
     cmds:
       - |
@@ -88,9 +88,9 @@ tasks:
               $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
               $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
               $ProgressPreference = "SilentlyContinue"
-              Invoke-WebRequest -URI "{{.REPO_URL}}" -OutFile $zip_file
+              Invoke-WebRequest -URI {{ quote REPO_URL }} -OutFile $zip_file
               Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-              Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}") -Destination {{.BIN_DIR}}
+              Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath {{ quote NAME }}) -Destination {{.BIN_DIR}}
               Remove-Item -Path $tmp_dir -Recurse
             '
           {{ else }}
@@ -126,11 +126,11 @@ tasks:
       DOWNLOAD_URL:
         sh: |
           curl --silent --location --output - '{{.REPO_URL}}' |
-          yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .browser_download_url'
+          yq --unwrapScalar '.assets[] | select(.name=={{ quote ASSET_PATTERN }}) | .browser_download_url'
       PACKAGE_NAME:
         sh: |
           curl --silent --location --output - '{{.REPO_URL}}' |
-          yq --unwrapScalar '.assets[] | select(.name=="{{.ASSET_PATTERN}}") | .name'
+          yq --unwrapScalar '.assets[] | select(.name=={{ quote ASSET_PATTERN }}) | .name'
       PACKAGE_DIR: '{{ trimSuffix .COMPRESS_EXT .PACKAGE_NAME }}'
     preconditions:
       - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
@@ -151,9 +151,9 @@ tasks:
               $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
               $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
               $ProgressPreference = "SilentlyContinue"
-              Invoke-WebRequest -URI "{{.REPO_URL}}" -OutFile $zip_file
+              Invoke-WebRequest -URI {{ quote REPO_URL }} -OutFile $zip_file
               Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-              Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}") -Destination {{.BIN_DIR}}
+              Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath {{ quote NAME }}) -Destination {{.BIN_DIR}}
               Remove-Item -Path $tmp_dir -Recurse
             '
           {{ else }}
