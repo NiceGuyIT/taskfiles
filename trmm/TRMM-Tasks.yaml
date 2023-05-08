@@ -160,6 +160,7 @@ tasks:
               select json_agg(j)
               from (
                 select
+                  id,
                   guid,
                   filename,
                   created_by as "submittedBy",
@@ -170,7 +171,8 @@ tasks:
                   default_timeout,
                   shell,
                   supported_platforms,
-                  category
+                  category,
+                  script_body
                   -- script_type is not needed in the output
                   -- env_vars are not supported in the JSON
                   -- hidden is not in the JSON
@@ -184,6 +186,31 @@ tasks:
           {{ if ne .USER .POSTGRES_USER }}EOT{{ end }}
 #      - cmd: |
 #          yq '.' {{ squote .RESULTS_JSON }}
+
+  scripts-database-export-script:
+    desc: Export your scripts from JSON (TEST).
+    summary: |
+      This task will export your scripts from a JSON file.
+
+      variables:
+       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+    vars:
+      POSTGRES_USER: '{{.POSTGRES_USER | default .TRMM_DEFAULT_POSTGRES_USER }}'
+      POSTGRES_DB: '{{.POSTGRES_DB | default .TRMM_DEFAULT_POSTGRES_DB }}'
+      RESULTS_JSON: 'scripts-db-script.json'
+      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
+    preconditions:
+      - task: :install:yq
+#      - sh: '{{ if ne OS "windows"}}command -v psql{{ end }}'
+#        msg: |
+#          psql is required to export data from the database. Please install 'psql' and try again.
+#      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
+#        msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
+    platforms: [linux]
+    cmds:
+      - cmd: |
+          cat {{.RESULTS_JSON}} | yq --output-format=json '.'
 
   management-command-load-community-scripts:
     desc: Load the TRMM community scripts into the database.

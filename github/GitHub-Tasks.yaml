@@ -18,8 +18,6 @@ tasks:
       ASSET_DIR: '{{ if eq .ASSET_DIR "true" }}true{{ end }}'
       # Some packages use x86_64 instead of amd64
       DOWNLOAD_URL:
-        # A variable cannot be assigned from a task, only the shell output.
-        # https://github.com/go-task/task/issues/178
         sh: |
           task --silent github:get-attribute "ATTRIBUTE='browser_download_url'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
       PACKAGE_NAME:

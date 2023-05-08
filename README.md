@@ -137,7 +137,7 @@ of task.
   difficult.
 - In order to call tasks in other files, call from the main namespace `:parent:task`.
 - To get the output of a task into a variable, use the dynamic version of variable assignment by using `sh` and
-  calling the task executable. For example, `task namespace:task-name VALUE="some value"`. See [issue #178].
+  calling the task executable. For example, `task namespace:task-name VALUE="some value"`. See [issue #178][].
     - This format does not work for `deps` since it expects a "task", not "shell output".
     - This format does not work for `preconditions` when the goal is to run the task if it needs to. For example, if the
       task is to download a utility, checking for the existence of the binary will cause the task to fail. The
@@ -151,3 +151,6 @@ of task.
 
 - For double quotes, prefer `{{ quote .MY_VARIABLE }}` over `"{{.MY_VARIABLE}}"` to escape double quotes.
 - Likewise with single quotes, prefer `{{ squote .MY_VARIABLE }}` over `'{{.MY_VARIABLE}}'` to escape single quotes.
+- See this [SO answer][] for nesting conditionals in Go templates.
+
+[SO answer]: https://stackoverflow.com/a/68361609
