@@ -198,10 +198,18 @@ tasks:
     vars:
       POSTGRES_USER: '{{.POSTGRES_USER | default .TRMM_DEFAULT_POSTGRES_USER }}'
       POSTGRES_DB: '{{.POSTGRES_DB | default .TRMM_DEFAULT_POSTGRES_DB }}'
-      RESULTS_JSON: 'scripts-db-script.json'
+      RESULTS_JSON: 'trmm/scripts-db-script.json'
+      EXPORT_JSON: 'trmm/scripts.json'
+      SCRIPTS_DIR: 'trmm/scripts/'
       REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
     preconditions:
       - task: :install:yq
+      - sh: '{{ if ne OS "windows"}}command -v tr{{ end }}'
+        msg: |
+          tr is required to translate character sets to sanitize the filename. Please install 'tr' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v uuidgen{{ end }}'
+        msg: |
+          uuidgen is required to generate UUIDs. Please install 'uuidgen' and try again.
 #      - sh: '{{ if ne OS "windows"}}command -v psql{{ end }}'
 #        msg: |
 #          psql is required to export data from the database. Please install 'psql' and try again.
@@ -210,7 +218,38 @@ tasks:
     platforms: [linux]
     cmds:
       - cmd: |
-          cat {{.RESULTS_JSON}} | yq --output-format=json '.'
+          for id in $(yq --output-format=json '.[].id' < {{.RESULTS_JSON}})
+          do
+            json=$(yq --output-format=json ".[] | select(.id == $id)" < {{.RESULTS_JSON}})
+            echo "ID: $id"
+            filename=$(echo $json | yq --output-format=json --unwrapScalar ".name" |
+              tr --complement --delete '\11\12\15\40-\176' | tr ' ' '_')
+            filename=${filename##_}
+            filename=${filename%%_}
+            shell=$(echo $json | yq --output-format=json --unwrapScalar ".shell")
+            case $shell in
+              "powershell")
+                filename="${filename}.ps1"
+                ;;
+              "shell")
+                filename="${filename}.sh"
+                ;;
+              "python")
+                filename="${filename}.py"
+                ;;
+              "cmd")
+                filename="${filename}.cmd"
+                ;;
+            esac
+            echo "Filename: $filename"
+            echo $json | yq --output-format=json --unwrapScalar '.script_body' > {{.SCRIPTS_DIR}}/${filename}
+            good_json=$(echo $json | yq --output-format=json --unwrapScalar "
+                del(.id,.script_body) |
+                .filename |= \"${filename}\" |
+                .guid |= \"$(uuidgen)\"
+              ")
+            echo $good_json | yq eval-all --inplace --output-format=json 'select(fileIndex == 0) + select(fileIndex == 1)' {{.EXPORT_JSON}} -
+          done
 
   management-command-load-community-scripts:
     desc: Load the TRMM community scripts into the database.

@@ -46,6 +46,7 @@ tasks:
             yq --output-format=json 'true' {{ squote .APPENDED_FILE }}
           {{ if and .SU_USER (ne .USER .SU_USER) }}EOT{{ end }}
       # '(select(fileIndex == 0)) + (select(fileIndex == 1) | .[].name |= ({{ quote SCRIPT_PREFIX }} + .))' \
+      # https://github.com/mikefarah/yq/issues/1315#issuecomment-1228484442
       - cmd: |
           {{ if and .SU_USER (ne .USER .SU_USER) }}su {{.SU_USER}} << 'EOT'{{ end }}
             yq eval-all --inplace --output-format=json \
