@@ -251,6 +251,69 @@ tasks:
             echo $good_json | yq eval-all --inplace --output-format=json 'select(fileIndex == 0) + select(fileIndex == 1)' {{.EXPORT_JSON}} -
           done
 
+  scripts-database-export-file:
+    desc: Convert the JSON exported from the database to a JSON file and script file.
+    summary: |
+      Given a JSON blob exported from the database representing a single script, this task will append it to the
+      'community_scripts.json' and save the script to a file.
+
+      variables:
+       - DATABASE_JSON: JSON exported from the database. Required.
+       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+    vars:
+      POSTGRES_USER: '{{.POSTGRES_USER | default .TRMM_DEFAULT_POSTGRES_USER }}'
+      POSTGRES_DB: '{{.POSTGRES_DB | default .TRMM_DEFAULT_POSTGRES_DB }}'
+      RESULTS_JSON: 'trmm/scripts-db-script.json'
+      EXPORT_JSON: 'trmm/scripts.json'
+      # DATABASE_JSON: '{{.DATABASE_JSON}}'
+      SCRIPTS_DIR: 'trmm/scripts/'
+      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
+    preconditions:
+      - task: :install:yq
+      - sh: '{{ if ne OS "windows"}}command -v tr{{ end }}'
+        msg: |
+          tr is required to translate character sets to sanitize the filename. Please install 'tr' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v uuidgen || command -v uuid{{ end }}'
+        msg: |
+          uuidgen/uuid is required to generate UUIDs. Please install 'uuidgen' (RPM) or 'uuid' (deb) and try again.
+    #      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
+    #        msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
+    platforms: [linux]
+    cmds:
+      - cmd: |
+          # Extract a sane filename
+          filename=$(echo {{ quote .DATABASE_JSON }} | yq --output-format=json --unwrapScalar ".name" |
+            tr --complement --delete '\11\12\15\40-\176' | tr ' ' '_')
+          filename=${filename##_}
+          filename=${filename%%_}
+          case $(echo {{ quote .DATABASE_JSON }} | yq --output-format=json --unwrapScalar ".shell") in
+            "powershell")
+              filename="${filename}.ps1"
+              ;;
+            "shell")
+              filename="${filename}.sh"
+              ;;
+            "python")
+              filename="${filename}.py"
+              ;;
+            "cmd")
+              filename="${filename}.cmd"
+              ;;
+          esac
+          echo "Filename: $filename"
+          # Save the script
+          echo {{ quote .DATABASE_JSON }} |
+            yq --output-format=json --unwrapScalar '.script_body' > {{.SCRIPTS_DIR}}/${filename}
+          # Convert the JSON to "import" format
+          echo {{ quote .DATABASE_JSON }} |
+            yq --output-format=json --unwrapScalar "
+                del(.id,.script_body) |
+                .filename |= \"${filename}\" |
+                .guid |= \"$(uuidgen)\"
+              " |
+            yq eval-all --inplace --output-format=json 'select(fileIndex == 0) + select(fileIndex == 1)' {{.EXPORT_JSON}} -
+
   management-command-load-community-scripts:
     desc: Load the TRMM community scripts into the database.
     summary: |
