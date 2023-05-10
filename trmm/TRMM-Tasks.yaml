@@ -129,20 +129,29 @@ tasks:
       - task: management-command-load-community-scripts
 
   scripts-database-export-all:
-    desc: Export your scripts from the database.
+    desc: Export your custom scripts from the database.
     summary: |
-      This task will export all custom scripts in the database to files in the current directory.
+      This task will export all custom scripts in the database to files in the repo and append to the JSON file.
+      No attempt is made to check if the script is not already in the JSON.
 
       variables:
        - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
-       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+       - POSTGRES_USER: Postgres user. Default: '{{.TRMM_DEFAULT_POSTGRES_USER}}'
+       - POSTGRES_DB: Postgres database for TRMM. Default: '{{.TRMM_DEFAULT_POSTGRES_DB}}'
+       - REPO_DIR: Custom scripts repo directory. Required
+       - REPO_USER: Linux user (owner) of the custom scripts repo directory.
+       - SCRIPTS_JSON: Name of the scripts JSON file. Default: 'scripts.json'
+       - SCRIPTS_DIR: Directory of the custom scripts. Default: 'scripts/'
     vars:
       POSTGRES_USER: '{{.POSTGRES_USER | default .TRMM_DEFAULT_POSTGRES_USER }}'
       POSTGRES_DB: '{{.POSTGRES_DB | default .TRMM_DEFAULT_POSTGRES_DB }}'
-      RESULTS_JSON:
+      REPO_DIR: '{{.REPO_DIR}}'
+      REPO_USER: '{{.REPO_USER}}'
+      SCRIPTS_JSON: '{{ .SCRIPTS_JSON | default "scripts.json" }}'
+      SCRIPTS_DIR: '{{ .SCRIPTS_DIR | default "scripts/" }}'
+      TMP_JSON:
         sh: |
           mktemp
-      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
     preconditions:
       - task: :install:yq
       - sh: '{{ if ne OS "windows"}}command -v psql{{ end }}'
@@ -157,11 +166,11 @@ tasks:
     cmds:
       - cmd: |
           {{ if eq .USER "root" }}
-            chown {{.POSTGRES_USER}} {{ squote .RESULTS_JSON }}
-            chmod a+r {{ squote .RESULTS_JSON }}
+            chown {{.POSTGRES_USER}} {{ squote .TMP_JSON }}
+            chmod a+r {{ squote .TMP_JSON }}
           {{ end }}
           {{ if ne .USER .POSTGRES_USER }}su {{.POSTGRES_USER}} << 'EOT'{{ end }}
-            cat << 'EOSQL' | psql --quiet {{.POSTGRES_DB}} | yq '.' > {{ squote .RESULTS_JSON }}
+            cat << 'EOSQL' | psql --quiet {{.POSTGRES_DB}} | yq '.' > {{ squote .TMP_JSON }}
               \t\a
               select json_agg(j)
               from (
@@ -191,14 +200,19 @@ tasks:
           EOSQL
           {{ if ne .USER .POSTGRES_USER }}EOT{{ end }}
       - cmd: |
-          for id in $(yq --output-format=json '.[].id' < {{ squote .RESULTS_JSON}})
+          for id in $(yq --output-format=json '.[].id' < {{ squote .TMP_JSON}})
           do
-            json64=$(yq --output-format=json ".[] | select(.id == $id)" < {{.RESULTS_JSON}} | base64 -)
-            task trmm:scripts-database-export-file TRMM_USER={{ squote .TRMM_USER }} REPO_DIR={{ squote .REPO_DIR }} BASE64_JSON="$json64"
-            #yq '.' {{ squote .RESULTS_JSON }}
+            json64=$(yq --output-format=json ".[] | select(.id == $id)" < {{.TMP_JSON}} | base64 -)
+            task trmm:scripts-database-export-file \
+              BASE64_JSON="$json64" \
+              TRMM_USER={{ squote .TRMM_USER }} \
+              REPO_DIR={{ squote .REPO_DIR }} \
+              REPO_USER={{ squote .REPO_USER }} \
+              SCRIPTS_JSON={{ squote .SCRIPTS_JSON }} \
+              SCRIPTS_DIR={{ squote .SCRIPTS_DIR }}
           done
       - cmd: |
-          [ -f {{ squote .RESULTS_JSON }} ] && rm {{ squote .RESULTS_JSON }}
+          [ -f {{ squote .TMP_JSON }} ] && rm {{ squote .TMP_JSON }}
 
   scripts-database-export-script:
     desc: Export your scripts from JSON (TEST).
@@ -273,7 +287,7 @@ tasks:
       variables:
        - BASE64_JSON: base64 encoded JSON exported from the database. Required.
        - REPO_DIR: Custom scripts repo directory. Required
-       - REPO_USER: Unix user (owner) of the custom scripts repo directory.
+       - REPO_USER: Linux user (owner) of the custom scripts repo directory.
        - SCRIPTS_JSON: Name of the scripts JSON file. Default: 'scripts.json'
        - SCRIPTS_DIR: Directory of the custom scripts. Default: 'scripts/'
     vars:
@@ -292,8 +306,8 @@ tasks:
       - sh: '{{ if ne OS "windows"}}command -v base64{{ end }}'
         msg: |
           base64 is required to encode JSON. Please install 'base64' and try again.
-    #      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
-    #        msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
+      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
+        msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
     platforms: [linux]
     cmds:
       - cmd: 'echo "REPO_DIR: {{.REPO_DIR}}"'
