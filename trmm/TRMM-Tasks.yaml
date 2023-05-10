@@ -128,10 +128,10 @@ tasks:
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
       - task: management-command-load-community-scripts
 
-  scripts-database-export:
+  scripts-database-export-all:
     desc: Export your scripts from the database.
     summary: |
-      This task will export your scripts in the database to files in the current directory.
+      This task will export all custom scripts in the database to files in the current directory.
 
       variables:
        - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
@@ -148,12 +148,18 @@ tasks:
       - sh: '{{ if ne OS "windows"}}command -v psql{{ end }}'
         msg: |
           psql is required to export data from the database. Please install 'psql' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v base64{{ end }}'
+        msg: |
+          base64 is required to encode JSON. Please install 'base64' and try again.
       - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
         msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
     platforms: [linux]
     cmds:
       - cmd: |
-          {{ if eq .USER "root" }}chown {{.POSTGRES_USER}} {{ squote .RESULTS_JSON }}{{ end }}
+          {{ if eq .USER "root" }}
+            chown {{.POSTGRES_USER}} {{ squote .RESULTS_JSON }}
+            chmod a+r {{ squote .RESULTS_JSON }}
+          {{ end }}
           {{ if ne .USER .POSTGRES_USER }}su {{.POSTGRES_USER}} << 'EOT'{{ end }}
             cat << 'EOSQL' | psql --quiet {{.POSTGRES_DB}} | yq '.' > {{ squote .RESULTS_JSON }}
               \t\a
@@ -184,8 +190,15 @@ tasks:
               ) as j
           EOSQL
           {{ if ne .USER .POSTGRES_USER }}EOT{{ end }}
-#      - cmd: |
-#          yq '.' {{ squote .RESULTS_JSON }}
+      - cmd: |
+          for id in $(yq --output-format=json '.[].id' < {{ squote .RESULTS_JSON}})
+          do
+            json64=$(yq --output-format=json ".[] | select(.id == $id)" < {{.RESULTS_JSON}} | base64 -)
+            task trmm:scripts-database-export-file TRMM_USER={{ squote .TRMM_USER }} REPO_DIR={{ squote .REPO_DIR }} BASE64_JSON="$json64"
+            #yq '.' {{ squote .RESULTS_JSON }}
+          done
+      - cmd: |
+          [ -f {{ squote .RESULTS_JSON }} ] && rm {{ squote .RESULTS_JSON }}
 
   scripts-database-export-script:
     desc: Export your scripts from JSON (TEST).
@@ -258,36 +271,56 @@ tasks:
       'community_scripts.json' and save the script to a file.
 
       variables:
-       - DATABASE_JSON: JSON exported from the database. Required.
-       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
-       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+       - BASE64_JSON: base64 encoded JSON exported from the database. Required.
+       - REPO_DIR: Custom scripts repo directory. Required
+       - REPO_USER: Unix user (owner) of the custom scripts repo directory.
+       - SCRIPTS_JSON: Name of the scripts JSON file. Default: 'scripts.json'
+       - SCRIPTS_DIR: Directory of the custom scripts. Default: 'scripts/'
     vars:
-      POSTGRES_USER: '{{.POSTGRES_USER | default .TRMM_DEFAULT_POSTGRES_USER }}'
-      POSTGRES_DB: '{{.POSTGRES_DB | default .TRMM_DEFAULT_POSTGRES_DB }}'
-      RESULTS_JSON: 'trmm/scripts-db-script.json'
-      EXPORT_JSON: 'trmm/scripts.json'
-      # DATABASE_JSON: '{{.DATABASE_JSON}}'
-      SCRIPTS_DIR: 'trmm/scripts/'
-      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
+      BASE64_JSON: '{{.BASE64_JSON}}'
+      REPO_DIR: '{{.REPO_DIR}}'
+      REPO_USER: '{{.REPO_USER}}'
+      SCRIPTS_JSON: '{{ .SCRIPTS_JSON | default "scripts.json" }}'
+      SCRIPTS_DIR: '{{ .SCRIPTS_DIR | default "scripts/" }}'
+      PATH_JSON: '{{.REPO_DIR}}/{{.SCRIPTS_JSON}}'
+      PATH_SCRIPTS: '{{.REPO_DIR}}/{{.SCRIPTS_DIR}}'
     preconditions:
       - task: :install:yq
       - sh: '{{ if ne OS "windows"}}command -v tr{{ end }}'
         msg: |
           tr is required to translate character sets to sanitize the filename. Please install 'tr' and try again.
-      - sh: '{{ if ne OS "windows"}}command -v uuidgen || command -v uuid{{ end }}'
+      - sh: '{{ if ne OS "windows"}}command -v base64{{ end }}'
         msg: |
-          uuidgen/uuid is required to generate UUIDs. Please install 'uuidgen' (RPM) or 'uuid' (deb) and try again.
+          base64 is required to encode JSON. Please install 'base64' and try again.
     #      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
     #        msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
     platforms: [linux]
     cmds:
+      - cmd: 'echo "REPO_DIR: {{.REPO_DIR}}"'
+      - cmd: 'echo "REPO_USER: {{.REPO_USER}}"'
+      - cmd: 'echo "SCRIPTS_JSON: {{.SCRIPTS_JSON}}"'
+      - cmd: 'echo "SCRIPTS_DIR: {{.SCRIPTS_DIR}}"'
+      - cmd: 'echo "PATH_JSON: {{.PATH_JSON}}"'
+      - cmd: 'echo "PATH_SCRIPTS: {{.PATH_SCRIPTS}}"'
+      # Create an empty JSON file if it does not exist
+      - cmd: |
+          if ! [ -e {{ squote .PATH_JSON }} ]
+          then
+            echo '[]' > {{ squote .PATH_JSON }}
+          fi
+      # Create the scripts directory if it does not exist
+      - cmd: |
+          if ! [ -d {{ squote .PATH_SCRIPTS }} ]
+          then
+            mkdir --parents {{ squote .PATH_SCRIPTS }}
+          fi
       - cmd: |
           # Extract a sane filename
-          filename=$(echo {{ quote .DATABASE_JSON }} | yq --output-format=json --unwrapScalar ".name" |
+          filename=$(echo {{ squote .BASE64_JSON }} | base64 --decode - | yq --output-format=json --unwrapScalar ".name" |
             tr --complement --delete '\11\12\15\40-\176' | tr ' ' '_')
           filename=${filename##_}
           filename=${filename%%_}
-          case $(echo {{ quote .DATABASE_JSON }} | yq --output-format=json --unwrapScalar ".shell") in
+          case $(echo {{ squote .BASE64_JSON }} | base64 --decode - | yq --output-format=json --unwrapScalar ".shell") in
             "powershell")
               filename="${filename}.ps1"
               ;;
@@ -303,16 +336,24 @@ tasks:
           esac
           echo "Filename: $filename"
           # Save the script
-          echo {{ quote .DATABASE_JSON }} |
-            yq --output-format=json --unwrapScalar '.script_body' > {{.SCRIPTS_DIR}}/${filename}
+          echo {{ squote .BASE64_JSON }} |
+            base64 --decode - |
+            yq --output-format=json --unwrapScalar '.script_body' > {{ squote .PATH_SCRIPTS }}/"${filename}"
           # Convert the JSON to "import" format
-          echo {{ quote .DATABASE_JSON }} |
+          echo {{ squote .BASE64_JSON }} |
+            base64 --decode - |
             yq --output-format=json --unwrapScalar "
                 del(.id,.script_body) |
                 .filename |= \"${filename}\" |
-                .guid |= \"$(uuidgen)\"
+                .guid |= \"$(cat /proc/sys/kernel/random/uuid)\"
               " |
-            yq eval-all --inplace --output-format=json 'select(fileIndex == 0) + select(fileIndex == 1)' {{.EXPORT_JSON}} -
+            yq eval-all --inplace --output-format=json 'select(fileIndex == 0) + select(fileIndex == 1)' {{ squote .PATH_JSON }} -
+      # Fix permissions if necessary
+      - cmd: |
+          {{ if and .REPO_USER (ne .USER .REPO_USER) }}
+            chown {{.REPO_USER}} {{ squote .PATH_JSON }}
+            chmod -R g+r {{ squote .PATH_SCRIPTS }}
+          {{ end }}
 
   management-command-load-community-scripts:
     desc: Load the TRMM community scripts into the database.
