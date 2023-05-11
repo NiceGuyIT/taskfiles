@@ -10,7 +10,9 @@ vars:
   TRMM_DEFAULT_POSTGRES_USER: 'postgres'
   TRMM_DEFAULT_POSTGRES_DB: 'tacticalrmm'
   TRMM_DEFAULT_COMMUNITY_JSON: 'community_scripts.json'
-  TRMM_DEFAULT_SCRIPT_PREFIX: '😎 My Scripts - '
+  TRMM_DEFAULT_SCRIPTS_PREFIX: '😎 My Scripts - '
+  TRMM_DEFAULT_SCRIPTS_REPO_JSON: '*.json'
+  TRMM_DEFAULT_SCRIPTS_REPO_DIR: 'scripts/'
 
 tasks:
 
@@ -19,42 +21,40 @@ tasks:
     summary: |
       This task will merge the JSON file for custom scripts with the JSON file for the community scripts. The
       following changes are applied during the transformation.
-       1. SCRIPT_PREFIX is prepended to the script name. This helps separate or brand custom scripts from the
+       1. SCRIPTS_PREFIX is prepended to the script name. This helps separate or brand custom scripts from the
           community scripts.
        2. The filename is modified to reflect the repo location. This is necessary for TRMM to import the file.
 
       variables:
        - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
-       - SCRIPTS_REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
-       - CUSTOM_REPO_DIR: Custom repo directory. Required.
-       - SCRIPT_PREFIX: Prefix name for all upstream scripts. Default: '{{.TRMM_DEFAULT_SCRIPT_PREFIX}}'
+       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+       - SCRIPTS_REPO_PATH: Full path to the custom repo. Required.
+       - SCRIPTS_REPO_DIR: Script location inside the repo. Default: '{{.TRMM_DEFAULT_SCRIPTS_REPO_DIR}}'
+       - SCRIPTS_REPO_JSON: JSON definition for the custom scripts. Default: Auto-detected with '*.json' wildcard.
+       - SCRIPTS_PREFIX: Prefix name for the custom scripts. Default: '{{.TRMM_DEFAULT_SCRIPTS_PREFIX}}'
     vars:
       TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
-      SCRIPTS_REPO_DIR: '{{.SCRIPTS_REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
-      CUSTOM_REPO_DIR: '{{.CUSTOM_REPO_DIR}}'
-      SCRIPT_PREFIX: '{{.SCRIPT_PREFIX | default .TRMM_DEFAULT_SCRIPT_PREFIX }}'
+      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
+#      SCRIPTS_REPO_PATH: '{{.SCRIPTS_REPO_PATH}}'
+      SCRIPTS_REPO_DIR: '{{.SCRIPTS_REPO_PATH | default .TRMM_DEFAULT_SCRIPTS_REPO_DIR }}'
+      SCRIPTS_REPO_JSON: '{{.SCRIPTS_REPO_PATH | default .TRMM_DEFAULT_SCRIPTS_REPO_JSON }}'
+      SCRIPTS_PREFIX: '{{.SCRIPTS_PREFIX | default .TRMM_DEFAULT_SCRIPTS_PREFIX }}'
       COMMUNITY_JSON:
         sh: |
-          task --silent filesystem:expand-glob FILE_GLOB={{.SCRIPTS_REPO_DIR}}/community_*.json
+          task --silent filesystem:expand-glob FILE_GLOB={{ squote .REPO_DIR }}/{{.TRMM_DEFAULT_COMMUNITY_JSON}}
       CUSTOM_JSON:
         sh: |
-          task --silent filesystem:expand-glob FILE_GLOB={{.CUSTOM_REPO_DIR}}/*.json
+          task --silent filesystem:expand-glob FILE_GLOB={{ squote .SCRIPTS_REPO_PATH }}/{{.SCRIPTS_REPO_JSON}}
     preconditions:
       - task: :install:yq
-      - sh: '[ {{ quote SCRIPTS_REPO_DIR }} != "" ]'
-        msg: 'SCRIPTS_REPO_DIR {{ quote SCRIPTS_REPO_DIR }} is not defined. Please set it to the community scripts directory.'
+      - sh: '[ {{ quote REPO_DIR }} != "" ]'
+        msg: 'REPO_DIR {{ quote REPO_DIR }} is not defined. Please set it to the community scripts directory.'
       - sh: '[ -f {{ squote .COMMUNITY_JSON }} ]'
         msg: 'The community JSON file {{ quote COMMUNITY_JSON }} does not exist.'
       - sh: '[ -f {{ squote .CUSTOM_JSON }} ]'
-        msg: 'The JSON file {{ quote CUSTOM_JSON }} does not exist in the custom repo {{ quote CUSTOM_REPO_DIR }}.'
+        msg: 'The JSON file {{ quote CUSTOM_JSON }} does not exist in the custom repo {{ quote SCRIPTS_REPO_PATH }}.'
     platforms: [linux]
     cmds:
-      #      - cmd: 'echo "TRMM_USER: {{.TRMM_USER}}"'
-      #      - cmd: 'echo "SCRIPTS_REPO_DIR: {{.SCRIPTS_REPO_DIR}}"'
-      #      - cmd: 'echo "CUSTOM_REPO_DIR: {{.CUSTOM_REPO_DIR}}"'
-      #      - cmd: 'echo "SCRIPT_PREFIX: {{.SCRIPT_PREFIX}}"'
-      #      - cmd: 'echo "COMMUNITY_JSON: {{.COMMUNITY_JSON}}"'
-      #      - cmd: 'echo "CUSTOM_JSON: {{.CUSTOM_JSON}}"'
       - task: scripts-repo-reset
         vars: {
           TRMM_USER: '{{.TRMM_USER}}',
@@ -65,7 +65,7 @@ tasks:
           ORIGINAL_FILE: '{{.COMMUNITY_JSON}}',
           APPENDED_FILE: '{{.CUSTOM_JSON}}',
           SU_USER: '{{.TRMM_USER}}',
-          APPENDED_TRANSFORMATION: '.[].name |= ({{ quote SCRIPT_PREFIX }} + .) | .[].filename |= ("../..{{.CUSTOM_REPO_DIR}}/" + .)',
+          APPENDED_TRANSFORMATION: '.[].name |= ({{ quote SCRIPTS_PREFIX }} + .) | .[].filename |= ("../..{{.SCRIPTS_REPO_PATH}}/" + .)',
         }
       - task: management-command-load-community-scripts
 
@@ -147,8 +147,8 @@ tasks:
       POSTGRES_DB: '{{.POSTGRES_DB | default .TRMM_DEFAULT_POSTGRES_DB }}'
       REPO_DIR: '{{.REPO_DIR}}'
       REPO_USER: '{{.REPO_USER}}'
-      SCRIPTS_JSON: '{{ .SCRIPTS_JSON | default "scripts.json" }}'
-      SCRIPTS_DIR: '{{ .SCRIPTS_DIR | default "scripts/" }}'
+      SCRIPTS_JSON: '{{ .SCRIPTS_JSON | default .TRMM_DEFAULT_SCRIPTS_REPO_JSON }}'
+      SCRIPTS_DIR: '{{ .SCRIPTS_DIR | default .TRMM_DEFAULT_SCRIPTS_REPO_DIR }}'
       TMP_JSON:
         sh: |
           mktemp
@@ -310,12 +310,6 @@ tasks:
         msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
     platforms: [linux]
     cmds:
-      - cmd: 'echo "REPO_DIR: {{.REPO_DIR}}"'
-      - cmd: 'echo "REPO_USER: {{.REPO_USER}}"'
-      - cmd: 'echo "SCRIPTS_JSON: {{.SCRIPTS_JSON}}"'
-      - cmd: 'echo "SCRIPTS_DIR: {{.SCRIPTS_DIR}}"'
-      - cmd: 'echo "PATH_JSON: {{.PATH_JSON}}"'
-      - cmd: 'echo "PATH_SCRIPTS: {{.PATH_SCRIPTS}}"'
       # Create an empty JSON file if it does not exist
       - cmd: |
           if ! [ -e {{ squote .PATH_JSON }} ]
@@ -409,10 +403,6 @@ tasks:
         msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
     platforms: [linux]
     cmds:
-      - cmd: 'echo "MGMT_DIR: {{.MGMT_DIR}}"'
-      - cmd: 'echo "TRMM_USER: {{.TRMM_USER}}"'
-      - cmd: 'echo "MGMT_CMD: {{.MGMT_CMD}}"'
-      - cmd: 'echo "MGMT_ARGS: {{.MGMT_ARGS}}"'
       - cmd: |
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
             cd {{ squote .MGMT_DIR }}
