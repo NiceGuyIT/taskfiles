@@ -26,6 +26,9 @@
                   <Item>
                     <option name="path" value="json/JSON-Tasks.yaml" />
                   </Item>
+                  <Item>
+                    <option name="path" value="system/System-Tasks.yaml" />
+                  </Item>
                 </list>
               </option>
             </SchemaInfo>

@@ -6,9 +6,6 @@ vars:
   TRMM_DEFAULT_REPO_DIR: '/opt/trmm-community-scripts/'
   TRMM_DEFAULT_MGMT_DIR: '/rmm/api/tacticalrmm'
   TRMM_DEFAULT_LOCAL_SETTINGS: '/rmm/api/tacticalrmm/tacticalrmm/local_settings.py'
-  TRMM_DEFAULT_USER: 'tactical'
-  TRMM_DEFAULT_POSTGRES_USER: 'postgres'
-  TRMM_DEFAULT_POSTGRES_DB: 'tacticalrmm'
   TRMM_DEFAULT_COMMUNITY_JSON: 'community_scripts.json'
   TRMM_DEFAULT_SCRIPTS_PREFIX: '😎 My Scripts - '
   TRMM_DEFAULT_SCRIPTS_REPO_JSON: '*.json'
@@ -16,7 +13,7 @@ vars:
 
 tasks:
 
-  scripts-repo-import-custom:
+  scripts-repo-custom-scripts-import:
     desc: Import custom scripts in a repo with the TRMM community scripts for import into TRMM.
     summary: |
       This task will merge the JSON file for custom scripts with the JSON file for the community scripts. The
@@ -26,14 +23,17 @@ tasks:
        2. The filename is modified to reflect the repo location. This is necessary for TRMM to import the file.
 
       variables:
-       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - TRMM_USER: Linux user to run Tactical commands. Default: 'tactical'
        - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
        - SCRIPTS_REPO_PATH: Full path to the custom repo. Required.
        - SCRIPTS_REPO_DIR: Script location inside the repo. Default: '{{.TRMM_DEFAULT_SCRIPTS_REPO_DIR}}'
        - SCRIPTS_REPO_JSON: JSON definition for the custom scripts. Default: Auto-detected with '*.json' wildcard.
        - SCRIPTS_PREFIX: Prefix name for the custom scripts. Default: '{{.TRMM_DEFAULT_SCRIPTS_PREFIX}}'
     vars:
-      TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
+      DEFAULT_TRMM_USER:
+        sh: |
+          task --silent system:user-exists CHECK_USER=tactical
+      TRMM_USER: '{{.TRMM_USER | default .DEFAULT_TRMM_USER}}'
       REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
 #      SCRIPTS_REPO_PATH: '{{.SCRIPTS_REPO_PATH}}'
       SCRIPTS_REPO_DIR: '{{.SCRIPTS_REPO_PATH | default .TRMM_DEFAULT_SCRIPTS_REPO_DIR }}'
@@ -48,13 +48,91 @@ tasks:
     preconditions:
       - task: :install:yq
       - sh: '[ {{ quote REPO_DIR }} != "" ]'
-        msg: 'REPO_DIR {{ quote REPO_DIR }} is not defined. Please set it to the community scripts directory.'
+        msg: |
+          REPO_DIR {{ quote REPO_DIR }} is not defined. Please set it to the community scripts directory.
       - sh: '[ -f {{ squote .COMMUNITY_JSON }} ]'
-        msg: 'The community JSON file {{ quote COMMUNITY_JSON }} does not exist.'
+        msg: |
+          The community JSON file {{ quote COMMUNITY_JSON }} does not exist.
       - sh: '[ -f {{ squote .CUSTOM_JSON }} ]'
-        msg: 'The JSON file {{ quote CUSTOM_JSON }} does not exist in the custom repo {{ quote SCRIPTS_REPO_PATH }}.'
+        msg: |
+          The JSON file {{ quote CUSTOM_JSON }} does not exist in the custom repo {{ quote SCRIPTS_REPO_PATH }}.
+      - sh: '! [ -z {{ squote .TRMM_USER }} ]'
+        msg: |
+          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
     platforms: [linux]
     cmds:
+      - task: scripts-repo-reset
+        vars: {
+          TRMM_USER: '{{.TRMM_USER}}',
+          REPO_DIR: '{{.REPO_DIR}}',
+        }
+      - task: :json:file-append
+        vars: {
+          ORIGINAL_FILE: '{{.COMMUNITY_JSON}}',
+          APPENDED_FILE: '{{.CUSTOM_JSON}}',
+          SU_USER: '{{.TRMM_USER}}',
+          APPENDED_TRANSFORMATION: '.[].name |= ({{ quote SCRIPTS_PREFIX }} + .) | .[].filename |= ("../..{{.SCRIPTS_REPO_PATH}}/" + .)',
+        }
+      - task: management-command-load-community-scripts
+
+  scripts-repo-custom-scripts-export-import:
+    desc: Export custom scripts from the database, and then import as a community script in TRMM.
+    summary: |
+      This task will perform the following tasks.
+      1. Export the custom (user created) scripts from the database and save them as files in the
+         SCRIPTS_REPO_DIR directory. The script definitions will be appended to the SCRIPTS_REPO_JSON file.
+      2. The community scripts repo will be reset to undo previous "merges".
+      3. The custom scripts SCRIPTS_REPO_JSON will be merged with the community scripts JSON file, applying the
+         following transformations.
+         - The 'filename' will point to the custom scripts repo SCRIPTS_REPO_PATH.
+         - The 'name' will be prepended with the SCRIPTS_PREFIX.
+      4. The TRMM management command will be run to load the community scripts into the database. This effectively
+         makes the custom scripts read-only as it is now considered part of the "community scripts".
+      
+      variables:
+       - TRMM_USER: Linux user to run Tactical commands. Default: 'tactical'
+       - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
+       - SCRIPTS_REPO_PATH: Full path to the custom scripts repo. Required.
+       - SCRIPTS_REPO_DIR: Script location inside the repo. Default: '{{.TRMM_DEFAULT_SCRIPTS_REPO_DIR}}'
+       - SCRIPTS_REPO_JSON: JSON definition for the custom scripts. Default: Auto-detected with '*.json' wildcard.
+       - SCRIPTS_PREFIX: Prefix name for the custom scripts. Default: '{{.TRMM_DEFAULT_SCRIPTS_PREFIX}}'
+    vars:
+      DEFAULT_TRMM_USER:
+        sh: |
+          task --silent system:user-exists CHECK_USER=tactical
+      TRMM_USER: '{{.TRMM_USER | default .DEFAULT_TRMM_USER}}'
+      REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
+      #      SCRIPTS_REPO_PATH: '{{.SCRIPTS_REPO_PATH}}'
+      SCRIPTS_REPO_DIR: '{{.SCRIPTS_REPO_PATH | default .TRMM_DEFAULT_SCRIPTS_REPO_DIR }}'
+      SCRIPTS_REPO_JSON: '{{.SCRIPTS_REPO_PATH | default .TRMM_DEFAULT_SCRIPTS_REPO_JSON }}'
+      SCRIPTS_PREFIX: '{{.SCRIPTS_PREFIX | default .TRMM_DEFAULT_SCRIPTS_PREFIX }}'
+      COMMUNITY_JSON:
+        sh: |
+          task --silent filesystem:expand-glob FILE_GLOB={{ squote .REPO_DIR }}/{{.TRMM_DEFAULT_COMMUNITY_JSON}}
+      CUSTOM_JSON:
+        sh: |
+          task --silent filesystem:expand-glob FILE_GLOB={{ squote .SCRIPTS_REPO_PATH }}/{{.SCRIPTS_REPO_JSON}}
+    preconditions:
+      - task: :install:yq
+      - sh: '[ {{ quote REPO_DIR }} != "" ]'
+        msg: |
+          REPO_DIR {{ quote REPO_DIR }} is not defined. Please set it to the community scripts directory.
+      - sh: '[ -f {{ squote .COMMUNITY_JSON }} ]'
+        msg: |
+          The community JSON file {{ quote COMMUNITY_JSON }} does not exist.
+      - sh: '[ -f {{ squote .CUSTOM_JSON }} ]'
+        msg: |
+          The JSON file {{ quote CUSTOM_JSON }} does not exist in the custom repo {{ quote SCRIPTS_REPO_PATH }}.
+      - sh: '! [ -z {{ squote .TRMM_USER }} ]'
+        msg: |
+          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
+    platforms: [linux]
+    cmds:
+      - task: scripts-database-export-all
+        vars: {
+          TRMM_USER: '{{.TRMM_USER}}',
+          REPO_DIR: '{{.REPO_DIR}}',
+        }
       - task: scripts-repo-reset
         vars: {
           TRMM_USER: '{{.TRMM_USER}}',
@@ -76,10 +154,13 @@ tasks:
       be lost. This task does NOT (re)load the community scripts into TRMM.
 
       variables:
-       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - TRMM_USER: Linux user to run Tactical commands. Default: 'tactical'
        - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
     vars:
-      TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
+      DEFAULT_TRMM_USER:
+        sh: |
+          task --silent system:user-exists CHECK_USER=tactical
+      TRMM_USER: '{{.TRMM_USER | default .DEFAULT_TRMM_USER}}'
       REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
     preconditions:
       - task: :install:yq
@@ -87,7 +168,11 @@ tasks:
         msg: |
           git is required to clone and work with repos. Please install 'git' and try again.
       - sh: '[ {{ quote .REPO_DIR }} != "" ]'
-        msg: 'REPO_DIR {{ quote REPO_DIR }} is not defined. Please set it to the community scripts directory.'
+        msg: |
+          REPO_DIR {{ quote REPO_DIR }} is not defined. Please set it to the community scripts directory.
+      - sh: '! [ -z {{ squote .TRMM_USER }} ]'
+        msg: |
+          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
     platforms: [linux]
     cmds:
       - cmd: |
@@ -102,10 +187,13 @@ tasks:
       This task will update the local community scripts repo from GitHub. All local changes are reverted before pulling.
 
       variables:
-       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - TRMM_USER: Linux user to run Tactical commands. Default: 'tactical'
        - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
     vars:
-      TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
+      DEFAULT_TRMM_USER:
+        sh: |
+          task --silent system:user-exists CHECK_USER=tactical
+      TRMM_USER: '{{.TRMM_USER | default .DEFAULT_TRMM_USER}}'
       REPO_DIR: '{{.REPO_DIR | default .TRMM_DEFAULT_REPO_DIR }}'
     preconditions:
       - task: :install:yq
@@ -113,7 +201,11 @@ tasks:
         msg: |
           git is required to clone and work with repos. Please install 'git' and try again.
       - sh: '[ {{ quote REPO_DIR }} != "" ]'
-        msg: 'REPO_DIR is not defined. Please set it to the community scripts directory.'
+        msg: |
+          REPO_DIR is not defined. Please set it to the community scripts directory.
+      - sh: '! [ -z {{ squote .TRMM_USER }} ]'
+        msg: |
+          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
     platforms: [linux]
     cmds:
       - task: scripts-repo-reset
@@ -135,16 +227,22 @@ tasks:
       No attempt is made to check if the script is not already in the JSON.
 
       variables:
-       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
-       - POSTGRES_USER: Postgres user. Default: '{{.TRMM_DEFAULT_POSTGRES_USER}}'
-       - POSTGRES_DB: Postgres database for TRMM. Default: '{{.TRMM_DEFAULT_POSTGRES_DB}}'
+       - TRMM_USER: Linux user to run Tactical commands. Default: 'tactical'
        - REPO_DIR: Custom scripts repo directory. Required
        - REPO_USER: Linux user (owner) of the custom scripts repo directory.
        - SCRIPTS_JSON: Name of the scripts JSON file. Default: 'scripts.json'
        - SCRIPTS_DIR: Directory of the custom scripts. Default: 'scripts/'
     vars:
-      POSTGRES_USER: '{{.POSTGRES_USER | default .TRMM_DEFAULT_POSTGRES_USER }}'
-      POSTGRES_DB: '{{.POSTGRES_DB | default .TRMM_DEFAULT_POSTGRES_DB }}'
+      POSTGRES_USER:
+        sh: |
+          task --silent system:user-exists CHECK_USER=postgres
+      POSTGRES_DB:
+        sh: |
+          task --silent trmm:config-get-value CONFIG_KEY=DATABASES JSON_EXP='.default.NAME'
+      DEFAULT_TRMM_USER:
+        sh: |
+          task --silent system:user-exists CHECK_USER=tactical
+      TRMM_USER: '{{.TRMM_USER | default .DEFAULT_TRMM_USER}}'
       REPO_DIR: '{{.REPO_DIR}}'
       REPO_USER: '{{.REPO_USER}}'
       SCRIPTS_JSON: '{{ .SCRIPTS_JSON | default .TRMM_DEFAULT_SCRIPTS_REPO_JSON }}'
@@ -161,7 +259,17 @@ tasks:
         msg: |
           base64 is required to encode JSON. Please install 'base64' and try again.
       - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
-        msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
+        msg: |
+          Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.
+      - sh: '! [ -z {{ squote .POSTGRES_USER }} ]'
+        msg: |
+          POSTGRES_USER {{ quote .POSTGRES_USER }} does not exist. Could not detect the 'postgres' system user.
+      - sh: '! [ -z {{ squote .POSTGRES_DB }} ]'
+        msg: |
+          POSTGRES_DB {{ quote .POSTGRES_DB }} is empty. Could not determine the tactical database from the config.
+      - sh: '! [ -z {{ squote .TRMM_USER }} ]'
+        msg: |
+          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
     platforms: [linux]
     cmds:
       - cmd: |
@@ -203,7 +311,7 @@ tasks:
           for id in $(yq --output-format=json '.[].id' < {{ squote .TMP_JSON}})
           do
             json64=$(yq --output-format=json ".[] | select(.id == $id)" < {{.TMP_JSON}} | base64 -)
-            task trmm:scripts-database-export-file \
+            task trmm:scripts-database-export-to-file \
               BASE64_JSON="$json64" \
               TRMM_USER={{ squote .TRMM_USER }} \
               REPO_DIR={{ squote .REPO_DIR }} \
@@ -220,11 +328,19 @@ tasks:
       This task will export your scripts from a JSON file.
 
       variables:
-       - TRMM_USER: Linux user to run Tactical commands. Default: '{{.TRMM_DEFAULT_USER}}'
+       - TRMM_USER: Linux user to run Tactical commands. Default: 'tactical'
        - REPO_DIR: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_REPO_DIR}}'
     vars:
-      POSTGRES_USER: '{{.POSTGRES_USER | default .TRMM_DEFAULT_POSTGRES_USER }}'
-      POSTGRES_DB: '{{.POSTGRES_DB | default .TRMM_DEFAULT_POSTGRES_DB }}'
+      POSTGRES_USER:
+        sh: |
+          task --silent system:user-exists CHECK_USER=postgres
+      POSTGRES_DB:
+        sh: |
+          task --silent trmm:config-get-value CONFIG_KEY=DATABASES JSON_EXP='.default.NAME'
+      DEFAULT_TRMM_USER:
+        sh: |
+          task --silent system:user-exists CHECK_USER=tactical
+      TRMM_USER: '{{.TRMM_USER | default .DEFAULT_TRMM_USER}}'
       RESULTS_JSON: 'trmm/scripts-db-script.json'
       EXPORT_JSON: 'trmm/scripts.json'
       SCRIPTS_DIR: 'trmm/scripts/'
@@ -237,6 +353,15 @@ tasks:
       - sh: '{{ if ne OS "windows"}}command -v uuidgen{{ end }}'
         msg: |
           uuidgen is required to generate UUIDs. Please install 'uuidgen' and try again.
+      - sh: '! [ -z {{ squote .POSTGRES_USER }} ]'
+        msg: |
+          POSTGRES_USER {{ quote .POSTGRES_USER }} does not exist. Could not detect the 'postgres' system user.
+      - sh: '! [ -z {{ squote .POSTGRES_DB }} ]'
+        msg: |
+          POSTGRES_DB {{ quote .POSTGRES_DB }} is empty. Could not determine the tactical database from the config.
+      - sh: '! [ -z {{ squote .TRMM_USER }} ]'
+        msg: |
+          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
 #      - sh: '{{ if ne OS "windows"}}command -v psql{{ end }}'
 #        msg: |
 #          psql is required to export data from the database. Please install 'psql' and try again.
@@ -278,7 +403,7 @@ tasks:
             echo $good_json | yq eval-all --inplace --output-format=json 'select(fileIndex == 0) + select(fileIndex == 1)' {{.EXPORT_JSON}} -
           done
 
-  scripts-database-export-file:
+  scripts-database-export-to-file:
     desc: Convert the JSON exported from the database to a JSON file and script file.
     summary: |
       Given a JSON blob exported from the database representing a single script, this task will append it to the
@@ -363,17 +488,59 @@ tasks:
             chmod -R g+r {{ squote .PATH_SCRIPTS }}
           {{ end }}
 
+  config-get-value:
+    desc: Get the value of a config key from the TRMM config file.
+    summary: |
+      This task will get a config key from the TRMM 'local_config.py' configuration file, and then process it with
+      the JSON_EXP to get a single value.
+      
+      variables:
+       - CONFIG_KEY: Variable in 'local_settings.py' that you want to get. Required.
+       - JSON_EXP: JSON expression to retrieve the value in CONFIG_KEY. If empty, CONFIG_KEY is not processed by 'yq'.
+    vars:
+      LOCAL_SETTINGS: '{{.TRMM_LOCAL_SETTINGS | default .TRMM_DEFAULT_LOCAL_SETTINGS }}'
+      CONFIG_KEY: '{{.CONFIG_KEY}}'
+      JSON_EXP: '{{.JSON_EXP}}'
+    preconditions:
+      - task: :install:yq
+      - sh: '{{ if ne OS "windows"}}command -v python3{{ end }}'
+        msg: |
+          python3 is required to parse the local config file. Is this a TRMM instance?
+      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
+        msg: |
+          TRMM does not appear to be installed. This task can only be run on a TRMM instance.
+      - sh: '[ -f {{ squote .LOCAL_SETTINGS }} ]'
+        msg: |
+          LOCAL_SETTINGS {{ quote .LOCAL_SETTINGS }} does not exist. This task can only be run on a TRMM instance.
+      - sh: '! [ -z {{ squote .CONFIG_KEY }} ]'
+        msg: |
+          CONFIG_KEY {{ quote .CONFIG_KEY }} was not specified or is empty.
+    platforms: [linux]
+    cmds:
+      - cmd: |
+          dir={{ squote .LOCAL_SETTINGS }}
+          cd ${dir%/*}
+          python3 -c 'import local_settings as conf; print(conf.{{.CONFIG_KEY}});' {{ if .JSON_EXP }}|
+            yq --output-format=json --unwrapScalar {{ squote .JSON_EXP }}{{ end }}
+
   management-command-load-community-scripts:
     desc: Load the TRMM community scripts into the database.
     summary: |
       This task will load the TRMM community scripts into the database.
     vars:
       MGMT_DIR: '{{.MGMT_DIR | default .TRMM_DEFAULT_MGMT_DIR }}'
-      TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
+      DEFAULT_TRMM_USER:
+        sh: |
+          task --silent system:user-exists CHECK_USER=tactical
+      TRMM_USER: '{{.TRMM_USER | default .DEFAULT_TRMM_USER}}'
       MGMT_CMD: 'load_community_scripts'
     preconditions:
       - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
-        msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
+        msg: |
+          Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.
+      - sh: '! [ -z {{ squote .TRMM_USER }} ]'
+        msg: |
+          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
     platforms: [linux]
     cmds:
       - task: management-command
@@ -389,18 +556,25 @@ tasks:
       This task run a TRMM management command in the Python console.
     vars:
       MGMT_DIR: '{{.MGMT_DIR | default .TRMM_DEFAULT_MGMT_DIR }}'
-      TRMM_USER: '{{.TRMM_USER | default .TRMM_DEFAULT_USER }}'
+      DEFAULT_TRMM_USER:
+        sh: |
+          task --silent system:user-exists CHECK_USER=tactical
+      TRMM_USER: '{{.TRMM_USER | default .DEFAULT_TRMM_USER}}'
       MGMT_CMD: '{{.MGMT_CMD}}'
       MGMT_ARGS: '{{.CLI_ARGS | default .MGMT_ARGS }}'
     preconditions:
-      - sh: '[ {{ quote MGMT_DIR }} != "" ]'
-        msg: 'MGMT_DIR is not defined. Please set it to the directory to run the management commands.'
-      - sh: '[ {{ quote TRMM_USER }} != "" ]'
-        msg: 'TRMM_USER is not defined. Please set it to the user to run the management commands.'
-      - sh: '[ {{ quote MGMT_CMD }} != "" ]'
-        msg: 'MGMT_CMD is not defined. Please set it to the management command you want to run.'
       - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
-        msg: 'Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.'
+        msg: |
+          Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.
+      - sh: '[ {{ quote MGMT_DIR }} != "" ]'
+        msg: |
+          MGMT_DIR {{ quote .MGMT_DIR }} is not defined. Please set it to the directory to run the management commands.
+      - sh: '[ {{ quote MGMT_CMD }} != "" ]'
+        msg: |
+          MGMT_CMD {{ quote .MGMT_CMD }} is not defined. Please set it to the management command you want to run.
+      - sh: '! [ -z {{ squote .TRMM_USER }} ]'
+        msg: |
+          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
     platforms: [linux]
     cmds:
       - cmd: |
