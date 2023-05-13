@@ -1,6 +1,4 @@
-# Taskfiles
-
-A collection of task files for use with [task][]. There's a repo that has [advanced examples][].
+n of task files for use with [task][]. There's a repo that has [advanced examples][].
 
 [task]: https://github.com/go-task/task
 
@@ -114,6 +112,14 @@ Remove-Item -Path $tmp_dir -Recurse
 ```
 
 </details>
+
+## System specific tasks
+
+- [GitHub][]
+- [Tactical RMM][]
+
+[GitHub]: github/README.md
+[Tactical RMM]: trmm/README.md
 
 ## Tasks
 

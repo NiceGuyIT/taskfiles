@@ -29,6 +29,9 @@
                   <Item>
                     <option name="path" value="system/System-Tasks.yaml" />
                   </Item>
+                  <Item>
+                    <option name="path" value="filesystem/Filesystem-Tasks.yaml" />
+                  </Item>
                 </list>
               </option>
             </SchemaInfo>
