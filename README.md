@@ -1,4 +1,4 @@
-n of task files for use with [task][]. There's a repo that has [advanced examples][].
+ask files for use with [task][]. There's a repo that has [advanced examples][].
 
 [task]: https://github.com/go-task/task
 
@@ -11,8 +11,9 @@ used to achieve this goal.
 
 1. Minimal requirements to bootstrap the system.
 2. Only single binary tools are used. This usually means tools that are written in Rust or Go.
-3. All configuration is passed via environmental variables.
-4. Streaming is preferred over temporary files.
+3. Cross-platform support.
+4. If possible, configuration values are passed via environmental variables.
+5. Streaming is preferred over temporary files.
 
 ## Requirements
 

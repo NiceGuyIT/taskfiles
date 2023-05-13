@@ -7,11 +7,11 @@
   - `TRMM_DEFAULT_COMMUNITY_PATH` is the full path to the community scripts repo.
   - `TRMM_DEFAULT_COMMUNITY_JSON` is the name of the community scripts JSON file.
 - The custom scripts repo is referred to as 'MY_SCRIPTS' to distinguish from the community scripts variables.
-  - `MY_SCRIPTS_PREFIX` is prepended to the script's name. All MY_SCRIPTS will have this prefix.
   - `MY_SCRIPTS_PATH` is the full path to the MY_SCRIPTS repo.
-  - `MY_SCRIPTS_DIR` is the directory inside the report to export MY_SCRIPTS.
-  - `MY_SCRIPTS_JSON` is the script definition file for MY_SCRIPTS. Some tasks will auto-detect this by using the
-    `*.json` wildcard in the repo root.
+  - `MY_SCRIPTS_NAME_PREFIX` is prepended to the script's name. All MY_SCRIPTS will have this prefix.
+  - `MY_SCRIPTS_DIR_PREFIX` is the directory inside the repo to export MY_SCRIPTS.
+  - `MY_SCRIPTS_DIR` is the full path to the 'MY_SCRIPTS' directory inside the repo.
+  - `MY_SCRIPTS_JSON` is the full path to the script definition file for MY_SCRIPTS.
 
 ## Custom Scripts Import
 
