@@ -39,8 +39,8 @@ tasks:
         age-keygen
         sops
     preconditions:
-      - sh: '[ "{{.BIN_DIR}}" != "" ]'
-      - sh: 'test -d "{{.BIN_DIR}}"'
+      - sh: '[ {{ quote BIN_DIR }} != "" ]'
+      - sh: 'test -d {{ quote BIN_DIR }}'
     cmds:
       # - cmd: 'echo BIN_DIR: {{.BIN_DIR}}'
       - cmd: |

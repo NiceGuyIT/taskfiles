@@ -13,8 +13,9 @@ used to achieve this goal.
 
 1. Minimal requirements to bootstrap the system.
 2. Only single binary tools are used. This usually means tools that are written in Rust or Go.
-3. All configuration is passed via environmental variables.
-4. Streaming is preferred over temporary files.
+3. Cross-platform support.
+4. If possible, configuration values are passed via environmental variables.
+5. Streaming is preferred over temporary files.
 
 ## Requirements
 
@@ -30,9 +31,13 @@ The following programs are needed to download and uncompress files.
 | Windows     | PowerShell | 'Expand-Archive' cmdlet to unzip files                    |
 | All*        | git        | Required to `git clone` this repo.                        |
 
-\*In the future it may be possible to download and uncompress a release, alleviating the need for `git`.
+> **Note**
+>
+> In the future it may be possible to download and uncompress a release, alleviating the need for `git`.
 
-Note: [rc-zip][] may be added in the future to allow unzipping from a stream.
+> **Note 2**
+>
+> Note: [rc-zip][] may be added in the future to allow unzipping from a stream.
 
 [rc-zip]: https://github.com/fasterthanlime/rc-zip
 
@@ -115,6 +120,14 @@ Remove-Item -Path $tmp_dir -Recurse
 
 </details>
 
+## System specific tasks
+
+- [GitHub][]
+- [Tactical RMM][]
+
+[GitHub]: github/README.md
+[Tactical RMM]: trmm/README.md
+
 ## Tasks
 
 `task` uses Go templates to interpret variable names, including environmental variables. The environmental
@@ -135,14 +148,22 @@ of task.
 
 - `task` does not output if a `task`, `deps`, or `precondition` is not found or invalid. This makes troubleshooting
   difficult.
-- In order to call tasks in other files, you need to include the other files. It's not enough to include them all in the
-  main task and then use the namespace `:parent:task`.
-    - If the file is not included, the "invalid configuration" is silently ignored.
-    - If the file is included in multiple files, those tasks show as duplicates in all subtasks.
-- To work around the above, tasks can be called from the shell as `task namespace:task-name VALUE="some value"`.
+- In order to call tasks in other files, call from the main namespace `:parent:task`.
+- To get the output of a task into a variable, use the dynamic version of variable assignment by using `sh` and
+  calling the task executable. For example, `task namespace:task-name VALUE="some value"`. See [issue #178][].
     - This format does not work for `deps` since it expects a "task", not "shell output".
     - This format does not work for `preconditions` when the goal is to run the task if it needs to. For example, if the
       task is to download a utility, checking for the existence of the binary will cause the task to fail. The
       workaround is to add the task to the `cmds` list.
 - Adding the task as another `cmd` in the `cmds` list works even though it goes against the design concepts of task.
     - Adding the task can be done with `task: :namespace:task-name`.
+
+[issue #178]: https://github.com/go-task/task/issues/178
+
+## Coding guidelines (best practices?)
+
+- For double quotes, prefer `{{ quote .MY_VARIABLE }}` over `"{{.MY_VARIABLE}}"` to escape double quotes.
+- Likewise with single quotes, prefer `{{ squote .MY_VARIABLE }}` over `'{{.MY_VARIABLE}}'` to escape single quotes.
+- See this [SO answer][] for nesting conditionals in Go templates.
+
+[SO answer]: https://stackoverflow.com/a/68361609
