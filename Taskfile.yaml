@@ -40,16 +40,6 @@ includes:
   system:
     taskfile: system/Taskfile.yaml
     optional: true
-  json:
-    taskfile: json/JSON-Tasks.yaml
-    optional: true
-  filesystem:
-    taskfile: filesystem/Filesystem-Tasks.yaml
-    aliases: [fs]
-    optional: true
-  system:
-    taskfile: system/System-Tasks.yaml
-    optional: true
   trmm:
     taskfile: trmm/Taskfile.yaml
     optional: true
