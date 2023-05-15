@@ -217,7 +217,7 @@ tasks:
           for id in $(yq --output-format=json '.[].id' < {{ squote .TMP_JSON}})
           do
             json64=$(yq --output-format=json ".[] | select(.id == $id)" < {{.TMP_JSON}} | base64 -)
-            task trmm-my-scripts:database-export-to-file \
+            task --silent trmm-my-scripts:database-export-to-file \
               BASE64_JSON="$json64" \
               MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }} \
               MY_SCRIPTS_USER={{ squote .MY_SCRIPTS_USER }} \
