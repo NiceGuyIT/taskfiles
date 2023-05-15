@@ -69,10 +69,10 @@ tasks:
       MY_SCRIPTS_PATH: '{{.MY_SCRIPTS_PATH}}'
       MY_SCRIPTS_JSON:
         sh: |
-          task --silent trmm:get-json MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
+          task --silent trmm-my-scripts:get-json MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
       MY_SCRIPTS_DIR:
         sh: |
-          task --silent trmm:get-dir MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
+          task --silent trmm-my-scripts:get-dir MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
       MY_SCRIPTS_DIR_PREFIX: '{{ trimPrefix .MY_SCRIPTS_PATH .MY_SCRIPTS_DIR | trimPrefix "/" }}'
       MY_SCRIPTS_NAME_PREFIX: '{{.MY_SCRIPTS_NAME_PREFIX | default .MY_SCRIPTS_DEFAULT_NAME_PREFIX }}'
     preconditions:
@@ -134,10 +134,10 @@ tasks:
       MY_SCRIPTS_PATH: '{{.MY_SCRIPTS_PATH}}'
       MY_SCRIPTS_DIR:
         sh: |
-          task --silent trmm:get-dir MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
+          task --silent trmm-my-scripts:get-dir MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
       MY_SCRIPTS_JSON:
         sh: |
-          task --silent trmm:get-json MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
+          task --silent trmm-my-scripts:get-json MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
       MY_SCRIPTS_USER:
         sh: |
           task --silent filesystem:file-get-user FILE_PATH={{ squote .MY_SCRIPTS_PATH }}
@@ -217,7 +217,7 @@ tasks:
           for id in $(yq --output-format=json '.[].id' < {{ squote .TMP_JSON}})
           do
             json64=$(yq --output-format=json ".[] | select(.id == $id)" < {{.TMP_JSON}} | base64 -)
-            task trmm:database-export-to-file \
+            task trmm-my-scripts:database-export-to-file \
               BASE64_JSON="$json64" \
               MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }} \
               MY_SCRIPTS_USER={{ squote .MY_SCRIPTS_USER }} \
