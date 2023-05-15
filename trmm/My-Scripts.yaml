@@ -99,7 +99,7 @@ tasks:
           Nothing to merge with the community scripts.
     platforms: [linux]
     cmds:
-      - task: community-repo-reset
+      - task: trmm:community-repo-reset
         vars: {
           TRMM_USER: '{{.TRMM_USER}}',
           COMMUNITY_PATH: '{{.COMMUNITY_PATH}}',
@@ -111,7 +111,7 @@ tasks:
           SU_USER: '{{.TRMM_USER}}',
           APPENDED_TRANSFORMATION: '.[].name |= ({{ quote .MY_SCRIPTS_NAME_PREFIX }} + .) | .[].filename |= ("../..{{.MY_SCRIPTS_PATH}}/" + .)',
         }
-      - task: management-command-load-community-scripts
+      - task: trmm:management-command-load-community-scripts
 
   export:
     desc: Export your custom scripts from the database
