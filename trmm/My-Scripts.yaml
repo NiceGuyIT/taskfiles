@@ -3,17 +3,13 @@ version: '3'
 
 # Variables are global with precedence hierarchy.
 vars:
-  TRMM_DEFAULT_MGMT_DIR: '/rmm/api/tacticalrmm'
-  TRMM_DEFAULT_LOCAL_SETTINGS: '/rmm/api/tacticalrmm/tacticalrmm/local_settings.py'
-  TRMM_DEFAULT_COMMUNITY_PATH: '/opt/trmm-community-scripts/'
-  TRMM_DEFAULT_COMMUNITY_JSON: 'community_scripts.json'
-  TRMM_DEFAULT_MY_SCRIPTS_NAME_PREFIX: '😎 My Scripts - '
-  TRMM_DEFAULT_MY_SCRIPTS_DIR: 'scripts/'
-  TRMM_DEFAULT_MY_SCRIPTS_JSON: '*.json'
+  MY_SCRIPTS_DEFAULT_NAME_PREFIX: '😎 My Scripts - '
+  MY_SCRIPTS_DEFAULT_DIR: 'scripts/'
+  MY_SCRIPTS_DEFAULT_JSON: '*.json'
 
 tasks:
 
-  my-scripts-export-import:
+  export-import:
     desc: Export MY_SCRIPTS from the database, merge them with the community scripts and import into TRMM.
     summary: |
       This task will perform the following tasks using defaults for almost all values. If you want more control over
@@ -38,16 +34,16 @@ tasks:
           MY_SCRIPTS_PATH {{ quote .MY_SCRIPTS_PATH }} is empty. Please set it to the path of the custom scripts repo.
     platforms: [linux]
     cmds:
-      - task: my-scripts-export
+      - task: export
         vars: {
           MY_SCRIPTS_PATH: '{{.MY_SCRIPTS_PATH}}',
         }
-      - task: my-scripts-import
+      - task: import
         vars: {
           MY_SCRIPTS_PATH: '{{.MY_SCRIPTS_PATH}}',
         }
 
-  my-scripts-import:
+  import:
     desc: Merge 'MY_SCRIPTS' with the community scripts and import into TRMM.
     summary: |
       This task will merge the JSON file for MY_SCRIPTS with the JSON file for the community scripts. The
@@ -59,9 +55,9 @@ tasks:
       variables:
        - COMMUNITY_PATH: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_COMMUNITY_PATH}}'
        - MY_SCRIPTS_PATH: Full path to the custom repo. Required.
-       - MY_SCRIPTS_DIR: Script location inside the repo. Default: '{{.TRMM_DEFAULT_MY_SCRIPTS_DIR}}'
+       - MY_SCRIPTS_DIR: Script location inside the repo. Default: '{{.MY_SCRIPTS_DEFAULT_DIR}}'
        - MY_SCRIPTS_JSON: JSON definition file for the custom scripts. Default: Auto-detected with '*.json' wildcard.
-       - MY_SCRIPTS_NAME_PREFIX: Prefix name for the custom scripts. Default: '{{.TRMM_DEFAULT_MY_SCRIPTS_NAME_PREFIX}}'
+       - MY_SCRIPTS_NAME_PREFIX: Prefix name for the custom scripts. Default: '{{.MY_SCRIPTS_DEFAULT_NAME_PREFIX}}'
     vars:
       TRMM_USER:
         sh: |
@@ -73,12 +69,12 @@ tasks:
       MY_SCRIPTS_PATH: '{{.MY_SCRIPTS_PATH}}'
       MY_SCRIPTS_JSON:
         sh: |
-          task --silent trmm:my-scripts-get-json MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
+          task --silent trmm-my-scripts:get-json MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
       MY_SCRIPTS_DIR:
         sh: |
-          task --silent trmm:my-scripts-get-dir MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
+          task --silent trmm-my-scripts:get-dir MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
       MY_SCRIPTS_DIR_PREFIX: '{{ trimPrefix .MY_SCRIPTS_PATH .MY_SCRIPTS_DIR | trimPrefix "/" }}'
-      MY_SCRIPTS_NAME_PREFIX: '{{.MY_SCRIPTS_NAME_PREFIX | default .TRMM_DEFAULT_MY_SCRIPTS_NAME_PREFIX }}'
+      MY_SCRIPTS_NAME_PREFIX: '{{.MY_SCRIPTS_NAME_PREFIX | default .MY_SCRIPTS_DEFAULT_NAME_PREFIX }}'
     preconditions:
       - task: :install:yq
       - sh: '[ ! -z {{ squote .TRMM_USER }} ]'
@@ -103,7 +99,7 @@ tasks:
           Nothing to merge with the community scripts.
     platforms: [linux]
     cmds:
-      - task: community-repo-reset
+      - task: :trmm:community-repo-reset
         vars: {
           TRMM_USER: '{{.TRMM_USER}}',
           COMMUNITY_PATH: '{{.COMMUNITY_PATH}}',
@@ -113,11 +109,13 @@ tasks:
           ORIGINAL_FILE: '{{.COMMUNITY_JSON}}',
           APPENDED_FILE: '{{.MY_SCRIPTS_JSON}}',
           SU_USER: '{{.TRMM_USER}}',
-          APPENDED_TRANSFORMATION: '.[].name |= ({{ quote .MY_SCRIPTS_NAME_PREFIX }} + .) | .[].filename |= ("../..{{.MY_SCRIPTS_PATH}}/" + .)',
+          # Important: The manage.py script is run in /rmm/api/tacticalrmm and since only relative paths are accepted,
+          # we need to traverse up 3 directories.
+          APPENDED_TRANSFORMATION: '.[].name |= ({{ quote .MY_SCRIPTS_NAME_PREFIX }} + .) | .[].filename |= ("../../..{{.MY_SCRIPTS_PATH}}/" + .)',
         }
-      - task: management-command-load-community-scripts
+      - task: :trmm:management-command-load-community-scripts
 
-  my-scripts-export:
+  export:
     desc: Export your custom scripts from the database
     summary: |
       This task will export the custom scripts in the database to files in MY_SCRIPTS repo and append to the JSON file.
@@ -138,10 +136,10 @@ tasks:
       MY_SCRIPTS_PATH: '{{.MY_SCRIPTS_PATH}}'
       MY_SCRIPTS_DIR:
         sh: |
-          task --silent trmm:my-scripts-get-dir MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
+          task --silent trmm-my-scripts:get-dir MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
       MY_SCRIPTS_JSON:
         sh: |
-          task --silent trmm:my-scripts-get-json MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
+          task --silent trmm-my-scripts:get-json MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
       MY_SCRIPTS_USER:
         sh: |
           task --silent filesystem:file-get-user FILE_PATH={{ squote .MY_SCRIPTS_PATH }}
@@ -221,7 +219,7 @@ tasks:
           for id in $(yq --output-format=json '.[].id' < {{ squote .TMP_JSON}})
           do
             json64=$(yq --output-format=json ".[] | select(.id == $id)" < {{.TMP_JSON}} | base64 -)
-            task trmm:my-scripts-database-export-to-file \
+            task --silent trmm-my-scripts:database-export-to-file \
               BASE64_JSON="$json64" \
               MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }} \
               MY_SCRIPTS_USER={{ squote .MY_SCRIPTS_USER }} \
@@ -232,12 +230,12 @@ tasks:
       - cmd: |
           [ -f {{ squote .TMP_JSON }} ] && rm {{ squote .TMP_JSON }}
 
-  my-scripts-database-export-to-file:
+  database-export-to-file:
     desc: Convert the JSON exported from the database to a JSON file and script file
     summary: |
       Given a JSON blob exported from the database representing a single script, this task will append it to the
       MY_SCRIPTS_JSON and save the script to a file in MY_SCRIPTS_DIR.
-      Note: This is meant to be called from the 'my-scripts-export' task.
+      Note: This is meant to be called from the 'export' task.
 
       variables:
        - BASE64_JSON: base64 encoded JSON exported from the database. Required.
@@ -304,7 +302,7 @@ tasks:
             chmod -R g+r {{ squote .PATH_DIR }}
           {{ end }}
 
-  my-scripts-get-dir:
+  get-dir:
     desc: Get the scripts directory in MY_SCRIPTS repo
     summary: |
       Get the scripts directory in the MY_SCRIPTS repo. If not found, 'scripts' is created and returned.
@@ -337,7 +335,7 @@ tasks:
             echo {{ osClean (print .MY_SCRIPTS_PATH "/" .MY_SCRIPTS_DIR) | squote }}
           {{ if ne .USER .MY_SCRIPTS_USER }}EOT{{ end }}
 
-  my-scripts-get-json:
+  get-json:
     desc: Get the JSON script definition file in MY_SCRIPTS repo
     # FIXME: Handle multiple filenames, or at the very least allow a custom filename.
     summary: |
@@ -384,175 +382,3 @@ tasks:
               echo {{ osClean .MY_SCRIPTS_JSON | squote }}
             fi
           {{ if ne .USER .MY_SCRIPTS_USER }}EOT{{ end }}
-
-  community-repo-reset:
-    desc: Reset the community scripts to the last commit from upstream
-    summary: |
-      This task will reset or revert the community scripts to their original upstream version. All local changes will
-      be lost. This task does NOT (re)load the community scripts into TRMM.
-
-      variables:
-       - COMMUNITY_PATH: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_COMMUNITY_PATH}}'
-    vars:
-      TRMM_USER:
-        sh: |
-          task --silent trmm:config-get-tactical-user
-      COMMUNITY_PATH: '{{.COMMUNITY_PATH | default .TRMM_DEFAULT_COMMUNITY_PATH }}'
-    preconditions:
-      - task: :install:yq
-      - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
-        msg: |
-          git is required to clone and work with repos. Please install 'git' and try again.
-      - sh: '[ {{ quote .COMMUNITY_PATH }} != "" ]'
-        msg: |
-          COMMUNITY_PATH {{ quote .COMMUNITY_PATH }} is not defined. Please set it to the community scripts directory.
-      - sh: '[ ! -z {{ squote .TRMM_USER }} ]'
-        msg: |
-          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
-    platforms: [linux]
-    cmds:
-      - cmd: |
-          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
-            cd {{ squote .COMMUNITY_PATH }}
-            git reset --hard origin/main
-          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
-
-  community-repo-update:
-    desc: Update the local community scripts repo and load into TRMM
-    summary: |
-      This task will update the local community scripts repo from GitHub. All local changes are reverted before pulling.
-      The community scripts will be loaded into TRMM.
-
-      variables:
-       - COMMUNITY_PATH: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_COMMUNITY_PATH}}'
-    vars:
-      TRMM_USER:
-        sh: |
-          task --silent trmm:config-get-tactical-user
-      COMMUNITY_PATH: '{{.COMMUNITY_PATH | default .TRMM_DEFAULT_COMMUNITY_PATH }}'
-    preconditions:
-      - task: :install:yq
-      - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
-        msg: |
-          git is required to clone and work with repos. Please install 'git' and try again.
-      - sh: '[ {{ quote COMMUNITY_PATH }} != "" ]'
-        msg: |
-          COMMUNITY_PATH is not defined. Please set it to the community scripts directory.
-      - sh: '[ ! -z {{ squote .TRMM_USER }} ]'
-        msg: |
-          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
-    platforms: [linux]
-    cmds:
-      - task: community-repo-reset
-        vars: {
-          COMMUNITY_PATH: '{{.COMMUNITY_PATH}}',
-        }
-      - cmd: |
-          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
-            cd {{ squote .COMMUNITY_PATH }}
-            git pull
-          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
-      - task: management-command-load-community-scripts
-
-  config-get-value:
-    desc: Get the value of a config key from the TRMM config file
-    summary: |
-      This task will get a config key from the TRMM 'local_config.py' configuration file, and then process it with
-      the JSON_EXP to get a single value.
-
-      variables:
-       - CONFIG_KEY: Variable in 'local_settings.py' that you want to get. Required.
-       - JSON_EXP: JSON expression to retrieve the value in CONFIG_KEY. If empty, CONFIG_KEY is not processed by 'yq'.
-    vars:
-      LOCAL_SETTINGS: '{{.LOCAL_SETTINGS | default .TRMM_DEFAULT_LOCAL_SETTINGS }}'
-      CONFIG_KEY: '{{.CONFIG_KEY}}'
-      JSON_EXP: '{{.JSON_EXP}}'
-    preconditions:
-      - task: :install:yq
-      - sh: '{{ if ne OS "windows"}}command -v python3{{ end }}'
-        msg: |
-          python3 is required to parse the local config file. Is this a TRMM instance?
-      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
-        msg: |
-          TRMM does not appear to be installed. This task can only be run on a TRMM instance.
-      - sh: '[ -f {{ squote .LOCAL_SETTINGS }} ]'
-        msg: |
-          LOCAL_SETTINGS {{ quote .LOCAL_SETTINGS }} does not exist. This task can only be run on a TRMM instance.
-      - sh: '[ ! -z {{ squote .CONFIG_KEY }} ]'
-        msg: |
-          CONFIG_KEY {{ quote .CONFIG_KEY }} was not specified or is empty.
-    platforms: [linux]
-    cmds:
-      - cmd: |
-          dir={{ squote .LOCAL_SETTINGS }}
-          cd ${dir%/*}
-          python3 -c 'import local_settings as conf; print(conf.{{.CONFIG_KEY}});' {{ if .JSON_EXP }}|
-            yq --output-format=json --unwrapScalar {{ squote .JSON_EXP }}{{ end }}
-
-  config-get-tactical-user:
-    desc: Get the OS user running TRMM
-    summary: |
-      Get the OS user for running TRMM as determined by the owner of the 'local_settings.py' file.
-    platforms: [linux]
-    vars:
-      LOCAL_SETTINGS: '{{.LOCAL_SETTINGS | default .TRMM_DEFAULT_LOCAL_SETTINGS }}'
-    preconditions:
-      - sh: '[ -f {{ squote .LOCAL_SETTINGS }} ]'
-        msg: |
-          LOCAL_SETTINGS {{ quote .LOCAL_SETTINGS }} does not exist. This task can only be run on a TRMM instance.
-    cmds:
-      - task: :filesystem:file-get-user
-        vars: {
-          FILE_PATH: '{{.LOCAL_SETTINGS}}',
-        }
-  management-command:
-    desc: Run a TRMM management command in the Python console
-    summary: |
-      This task run a TRMM management command in the Python console.
-    vars:
-      MGMT_DIR: '{{.MGMT_DIR | default .TRMM_DEFAULT_MGMT_DIR }}'
-      TRMM_USER:
-        sh: |
-          task --silent trmm:config-get-tactical-user
-      MGMT_CMD: '{{.MGMT_CMD}}'
-      MGMT_ARGS: '{{.CLI_ARGS | default .MGMT_ARGS }}'
-    preconditions:
-      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
-        msg: |
-          Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.
-      - sh: '[ ! -z {{ quote .MGMT_DIR }} ]'
-        msg: |
-          MGMT_DIR {{ quote .MGMT_DIR }} is not defined. Please set it to the directory to run the management commands.
-      - sh: '[ ! -z {{ quote .MGMT_CMD }} ]'
-        msg: |
-          MGMT_CMD {{ quote .MGMT_CMD }} is not defined. Please set it to the management command you want to run.
-      - sh: '[ ! -z {{ squote .TRMM_USER }} ]'
-        msg: |
-          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
-    platforms: [linux]
-    cmds:
-      - cmd: |
-          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
-            cd {{ squote .MGMT_DIR }}
-            source ../env/bin/activate
-            python manage.py {{.MGMT_CMD}} {{.MGMT_ARGS}}
-          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
-
-  management-command-load-community-scripts:
-    desc: Load the TRMM community scripts into the database
-    summary: |
-      This task will load the TRMM community scripts into the database.
-    vars:
-      MGMT_DIR: '{{.MGMT_DIR | default .TRMM_DEFAULT_MGMT_DIR }}'
-      MGMT_CMD: 'load_community_scripts'
-    preconditions:
-      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
-        msg: |
-          Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.
-    platforms: [linux]
-    cmds:
-      - task: management-command
-        vars: {
-          MGMT_DIR: '{{.MGMT_DIR}}',
-          MGMT_CMD: '{{.MGMT_CMD}}',
-        }

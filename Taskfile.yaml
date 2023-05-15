@@ -22,27 +22,34 @@ env:
 # duplication.
 includes:
   init:
-    taskfile: init/Init-Tasks.yaml
+    taskfile: init/Taskfile.yaml
     optional: true
   install:
-    taskfile: install/Install-Tasks.yaml
+    taskfile: install/Taskfile.yaml
     optional: true
   github:
-    taskfile: github/GitHub-Tasks.yaml
+    taskfile: github/Taskfile.yaml
     optional: true
   json:
-    taskfile: json/JSON-Tasks.yaml
+    taskfile: json/Taskfile.yaml
     optional: true
   filesystem:
-    taskfile: filesystem/Filesystem-Tasks.yaml
+    taskfile: filesystem/Taskfile.yaml
     aliases: [fs]
     optional: true
   system:
-    taskfile: system/System-Tasks.yaml
+    taskfile: system/Taskfile.yaml
     optional: true
   trmm:
-    taskfile: trmm/TRMM-Tasks.yaml
+    taskfile: trmm/Taskfile.yaml
+    optional: true
+  trmm-my-scripts:
+    taskfile: trmm/My-Scripts.yaml
     optional: true
 
 tasks:
   donothing: 'true'
+
+  list:
+    cmds:
+      - cmd: 'task --list'

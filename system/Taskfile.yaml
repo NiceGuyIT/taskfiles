@@ -7,7 +7,7 @@ tasks:
     desc: Check if the system (OS) user exists.
     summary: |
       This task will check if the given user exists.
-      
+
       variables:
        - CHECK_USER: User to check. Required.
     vars:
