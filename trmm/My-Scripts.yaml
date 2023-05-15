@@ -44,7 +44,7 @@ tasks:
         }
 
   import:
-    desc: Merge 'MY_SCRIPTS' with the community scripts and import into TRMM.
+    desc: Merge 'MY_SCRIPTS' with the community scripts and import into TRMM
     summary: |
       This task will merge the JSON file for MY_SCRIPTS with the JSON file for the community scripts. The
       following transformations are applied during the merge.
@@ -109,11 +109,85 @@ tasks:
           ORIGINAL_FILE: '{{.COMMUNITY_JSON}}',
           APPENDED_FILE: '{{.MY_SCRIPTS_JSON}}',
           SU_USER: '{{.TRMM_USER}}',
-          # Important: The manage.py script is run in /rmm/api/tacticalrmm and since only relative paths are accepted,
-          # we need to traverse up 3 directories.
+          # Important: The 'load_community_scripts' joins SCRIPTS_DIR ('/opt/trmm-community-scripts') with 'scripts'
+          # before adding the filename. That is the purpose of traversing up 3 directories before using the absolute
+          # path to MY_SCRIPTS.
+          # https://github.com/amidaware/tacticalrmm/blob/master/api/tacticalrmm/scripts/models.py#L107
           APPENDED_TRANSFORMATION: '.[].name |= ({{ quote .MY_SCRIPTS_NAME_PREFIX }} + .) | .[].filename |= ("../../..{{.MY_SCRIPTS_PATH}}/" + .)',
         }
       - task: :trmm:management-command-load-community-scripts
+
+  import-multiple:
+    desc: Merge 'MY_SCRIPTS' with the community scripts
+    summary: |
+      This task will merge the JSON file for MY_SCRIPTS with the JSON file for the community scripts. The
+      following transformations are applied during the merge.
+       1. MY_SCRIPTS_NAME_PREFIX is prepended to the script name. This helps separate or brand MY_SCRIPTS from the
+          community scripts.
+       2. The filename is modified to reflect the repo location. This is necessary for TRMM to import the file.
+
+      Note: This task does *NOT* reset the community repo or load the scripts afterwards. The purpose of this task is
+      to merge multiple MY_SCRIPTS repos before importing them into TRMM. You will need to run the
+      'trmm:management-command-load-community-scripts' task afterwards to import them into TRMM.
+
+      variables:
+       - COMMUNITY_PATH: 'community_scripts' repo directory. Default: '{{.TRMM_DEFAULT_COMMUNITY_PATH}}'
+       - MY_SCRIPTS_PATH: Full path to the custom repo. Required.
+       - MY_SCRIPTS_DIR: Script location inside the repo. Default: '{{.MY_SCRIPTS_DEFAULT_DIR}}'
+       - MY_SCRIPTS_JSON: JSON definition file for the custom scripts. Default: Auto-detected with '*.json' wildcard.
+       - MY_SCRIPTS_NAME_PREFIX: Prefix name for the custom scripts. Default: '{{.MY_SCRIPTS_DEFAULT_NAME_PREFIX}}'
+    vars:
+      TRMM_USER:
+        sh: |
+          task --silent trmm:config-get-tactical-user
+      COMMUNITY_PATH: '{{.COMMUNITY_PATH | default .TRMM_DEFAULT_COMMUNITY_PATH }}'
+      COMMUNITY_JSON:
+        sh: |
+          task --silent filesystem:expand-glob FILE_GLOB={{ squote .COMMUNITY_PATH }}/{{.TRMM_DEFAULT_COMMUNITY_JSON}}
+      MY_SCRIPTS_PATH: '{{.MY_SCRIPTS_PATH}}'
+      MY_SCRIPTS_JSON:
+        sh: |
+          task --silent trmm-my-scripts:get-json MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
+      MY_SCRIPTS_DIR:
+        sh: |
+          task --silent trmm-my-scripts:get-dir MY_SCRIPTS_PATH={{ squote .MY_SCRIPTS_PATH }}
+      MY_SCRIPTS_DIR_PREFIX: '{{ trimPrefix .MY_SCRIPTS_PATH .MY_SCRIPTS_DIR | trimPrefix "/" }}'
+      MY_SCRIPTS_NAME_PREFIX: '{{.MY_SCRIPTS_NAME_PREFIX | default .MY_SCRIPTS_DEFAULT_NAME_PREFIX }}'
+    preconditions:
+      - task: :install:yq
+      - sh: '[ ! -z {{ squote .TRMM_USER }} ]'
+        msg: |
+          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
+      - sh: '[ ! -z {{ squote .COMMUNITY_PATH }} ]'
+        msg: |
+          COMMUNITY_PATH {{ quote .COMMUNITY_PATH }} is empty. Please set it to the community scripts directory.
+      - sh: '[ -f {{ squote .COMMUNITY_JSON }} ]'
+        msg: |
+          The community JSON file {{ quote .COMMUNITY_JSON }} does not exist.
+      - sh: '[ ! -z {{ squote .MY_SCRIPTS_PATH }} ]'
+        msg: |
+          MY_SCRIPTS_PATH {{ quote .MY_SCRIPTS_PATH }} is empty. Please set it to the path of "my scripts" repo.
+      - sh: '[ ! -z {{ squote .MY_SCRIPTS_JSON }} ]'
+        msg: |
+          The JSON file {{ quote .MY_SCRIPTS_JSON}} expanded to {{ quote .MY_SCRIPTS_JSON }} does not exist in "my scripts" repo {{ quote .MY_SCRIPTS_PATH }}.
+          Set MY_SCRIPTS_JSON to the scripts JSON file.
+      - sh: '[ -f {{ squote .MY_SCRIPTS_JSON }} ]'
+        msg: |
+          The JSON file {{ quote .MY_SCRIPTS_JSON}} does not exist in the custom repo {{ quote .MY_SCRIPTS_PATH }}.
+          Nothing to merge with the community scripts.
+    platforms: [linux]
+    cmds:
+      - task: :json:file-append
+        vars: {
+          ORIGINAL_FILE: '{{.COMMUNITY_JSON}}',
+          APPENDED_FILE: '{{.MY_SCRIPTS_JSON}}',
+          SU_USER: '{{.TRMM_USER}}',
+          # Important: The 'load_community_scripts' joins SCRIPTS_DIR ('/opt/trmm-community-scripts') with 'scripts'
+          # before adding the filename. That is the purpose of traversing up 3 directories before using the absolute
+          # path to MY_SCRIPTS.
+          # https://github.com/amidaware/tacticalrmm/blob/master/api/tacticalrmm/scripts/models.py#L107
+          APPENDED_TRANSFORMATION: '.[].name |= ({{ quote .MY_SCRIPTS_NAME_PREFIX }} + .) | .[].filename |= ("../../..{{.MY_SCRIPTS_PATH}}/" + .)',
+        }
 
   export:
     desc: Export your custom scripts from the database
