@@ -29,9 +29,13 @@ The following programs are needed to download and uncompress files.
 | Windows     | PowerShell | 'Expand-Archive' cmdlet to unzip files                    |
 | All*        | git        | Required to `git clone` this repo.                        |
 
-\*In the future it may be possible to download and uncompress a release, alleviating the need for `git`.
+> **Note**
+>
+> In the future it may be possible to download and uncompress a release, alleviating the need for `git`.
 
-Note: [rc-zip][] may be added in the future to allow unzipping from a stream.
+> **Note 2**
+>
+> Note: [rc-zip][] may be added in the future to allow unzipping from a stream.
 
 [rc-zip]: https://github.com/fasterthanlime/rc-zip
 
@@ -41,7 +45,7 @@ Follow these steps to bootstrap the system. Actual commands are given below.
 
 1. Clone this repo.
 2. Download [task][] into the current directory.
-3. Run `./task init-all` to create the `bin` directory and download the bare minimum.
+3. Run `./task init:all` to create the `bin` directory and download the bare minimum.
 4. Add the `bin` directory to your path.
     - If `task` is run with elevated permissions, the `bin` directory will be a system-side bin directory.
     - If `task` is run by a regular user, the `bin` directory will be in their home directory.
@@ -73,7 +77,7 @@ curl --location --output - "$repo" | tar -zxf - task
 chmod a+x ./task
 
 # Initialize the tasks. This downloads 'task' to the bin directory.
-task init --status
+./task init:all --status
 
 # Cleanup
 rm ./task
@@ -106,7 +110,7 @@ Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
 $task = Join-Path -Path $tmp_dir -ChildPath "task.exe"
 
 # Initialize the tasks. This downloads 'task' to the bin directory.
-& $task init --status
+& $task init:all --status
 
 # Cleanup
 Remove-Item -Path $tmp_dir -Recurse
