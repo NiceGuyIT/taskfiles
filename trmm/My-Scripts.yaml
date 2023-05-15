@@ -109,7 +109,9 @@ tasks:
           ORIGINAL_FILE: '{{.COMMUNITY_JSON}}',
           APPENDED_FILE: '{{.MY_SCRIPTS_JSON}}',
           SU_USER: '{{.TRMM_USER}}',
-          APPENDED_TRANSFORMATION: '.[].name |= ({{ quote .MY_SCRIPTS_NAME_PREFIX }} + .) | .[].filename |= ("../..{{.MY_SCRIPTS_PATH}}/" + .)',
+          # Important: The manage.py script is run in /rmm/api/tacticalrmm and since only relative paths are accepted,
+          # we need to traverse up 3 directories.
+          APPENDED_TRANSFORMATION: '.[].name |= ({{ quote .MY_SCRIPTS_NAME_PREFIX }} + .) | .[].filename |= ("../../..{{.MY_SCRIPTS_PATH}}/" + .)',
         }
       - task: :trmm:management-command-load-community-scripts
 
