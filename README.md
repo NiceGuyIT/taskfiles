@@ -77,7 +77,7 @@ curl --location --output - "$repo" | tar -zxf - task
 chmod a+x ./task
 
 # Initialize the tasks. This downloads 'task' to the bin directory.
-./task init:all --status
+./task init:all
 
 # Cleanup
 rm ./task
@@ -110,7 +110,7 @@ Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
 $task = Join-Path -Path $tmp_dir -ChildPath "task.exe"
 
 # Initialize the tasks. This downloads 'task' to the bin directory.
-& $task init:all --status
+& $task init:all
 
 # Cleanup
 Remove-Item -Path $tmp_dir -Recurse

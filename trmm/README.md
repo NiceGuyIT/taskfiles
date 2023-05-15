@@ -15,7 +15,8 @@
 
 ## My Scripts
 
-TRMM recognizes scripts by the GUID in the JSON. As long as the GUID doesn't change,
+TRMM recognizes scripts by the GUID in the JSON. As long as the GUID doesn't change, you can change the name and
+description and the load process will update the existing record.
 
 ### My Scripts Export and Import
 
