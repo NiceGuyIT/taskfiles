@@ -92,7 +92,7 @@ The `trmm:config-get-value` task is a helper task to get the configuration value
 The CONFIG_KEY is the Python variable you want to get, with an optional JSON_EXP that is applied to extract values
 within the CONFIG_KEY.
 
-## config Get Tactical User
+## Config Get Tactical User
 
 The `trmm:config-get-tactical-user` will get the OS running TRMM as determined by the ownership of `local_settings.py`.
 
