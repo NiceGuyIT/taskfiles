@@ -191,6 +191,33 @@ tasks:
       # TODO: Check for version numbers to see if it needs to be updated.
       - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" version'
 
+  fzf:
+    # https://github.com/junegunn/fzf
+    desc: Install 'fzf', a command-line fuzzy finder
+    vars:
+      NAME: fzf
+      OWNER: junegunn
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{.ARCH | default ARCH}}'
+      COMPRESS_EXT: '.zip'
+    cmds:
+      # vars are not passed to subtasks automatically.
+      # https://taskfile.dev/usage/#variables
+      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          ASSET_PATTERN: '{{.NAME}}-*-{{OS}}_{{.ARCH}}{{.COMPRESS_EXT}}',
+        }
+    #status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      #- '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --version'
+
   ripgrep:
     # https://github.com/BurntSushi/ripgrep
     desc: Install 'ripgrep' (command 'rg'), an enhanced grep.

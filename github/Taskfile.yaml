@@ -4,7 +4,7 @@ version: "3"
 tasks:
 
   download:
-    # Do not use internal until the corresponding github-get-attribute task is marked internal.
+    # Do not use internal until the corresponding github:get-attribute task is marked internal.
     # internal: true
     desc: Download a release from GitHub
     vars:
@@ -19,27 +19,27 @@ tasks:
       # Some packages use x86_64 instead of amd64
       DOWNLOAD_URL:
         sh: |
-          task --silent github:get-attribute "ATTRIBUTE='browser_download_url'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
+          task --silent github:get-attribute ATTRIBUTE='browser_download_url' REPO_URL={{ squote .REPO_URL }} ASSET_PATTERN={{ squote .ASSET_PATTERN}}
       PACKAGE_NAME:
         sh: |
-          task --silent github:get-attribute "ATTRIBUTE='name'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
+          task --silent github:get-attribute ATTRIBUTE='name' REPO_URL={{ squote .REPO_URL}} ASSET_PATTERN={{ squote .ASSET_PATTERN}}
       # TAG_NAME is the version. Currently not used.
       TAG_NAME:
         sh: |
-          task --silent github:get-attribute "ATTRIBUTE='tag_name'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
+          task --silent github:get-attribute ATTRIBUTE='tag_name' REPO_URL={{ squote .REPO_URL}} ASSET_PATTERN={{ squote .ASSET_PATTERN}}
       COMPRESS_EXT: '{{.COMPRESS_EXT | default "" }}'
       PACKAGE_DIR: '{{.PACKAGE_DIR | default (trimSuffix .COMPRESS_EXT .PACKAGE_NAME) }}'
     preconditions:
-      - task: :init:all
-      - sh: '[ {{ quote NAME }} != "" ]'
-        msg: '.NAME is not defined'
-      - sh: '[ {{ quote OWNER }} != "" ]'
-        msg: '.OWNER is not defined'
-      - sh: '[ {{ quote ASSET_PATTERN }} != "" ]'
-        msg: '.ASSET_PATTERN is not defined'
-      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
+#      - task: :init:all
+      - sh: '[ ! -z {{ quote .NAME }} ]'
         msg: |
-          curl is required to download files. Please install 'curl' and try again.
+          NAME {{ quote .NAME }} is not defined.
+      - sh: '[ ! -z {{ quote .OWNER }} ]'
+        msg: |
+          OWNER {{ quote .OWNER }} is not defined.
+      - sh: '[ ! -z {{ quote .ASSET_PATTERN }} ]'
+        msg: |
+          ASSET_PATTERN {{ quote .ASSET_PATTERN }} is not defined.
       - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
         msg: |
           tar is required to extract files from archives. Please install 'tar' and try again.
@@ -51,18 +51,18 @@ tasks:
           unzip is required to uncompress files. Please install 'unzip'/'zip' and try again.
     cmds:
       # Use this for debugging
-      # - cmd: 'echo "NAME: {{.NAME}}"'
-      # - cmd: 'echo "OWNER: {{.OWNER}}"'
-      # - cmd: 'echo "REPO: {{.REPO}}"'
-      # - cmd: 'echo "ARCH: {{.ARCH}}"'
-      # - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
-      # - cmd: 'echo "REPO_URL: {{.REPO_URL}}"'
-      # - cmd: 'echo "ASSET_DIR: {{.ASSET_DIR}}"'
-      # - cmd: 'echo "ASSET_DIR boolean: {{ if .ASSET_DIR }}true{{ else }}false{{ end }}"'
-      # - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
-      # - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
-      # - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
-      # - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
+      - cmd: 'echo "NAME: {{.NAME}}"'
+      - cmd: 'echo "OWNER: {{.OWNER}}"'
+      - cmd: 'echo "REPO: {{.REPO}}"'
+      - cmd: 'echo "ARCH: {{.ARCH}}"'
+      - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
+      - cmd: 'echo "REPO_URL: {{.REPO_URL}}"'
+      - cmd: 'echo "ASSET_DIR: {{.ASSET_DIR}}"'
+      - cmd: 'echo "ASSET_DIR boolean: {{ if .ASSET_DIR }}true{{ else }}false{{ end }}"'
+      - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
+      - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
+      - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
+      - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
       - task: download-asset
         vars: {
           COMPRESS_EXT: '{{.COMPRESS_EXT}}',
@@ -80,22 +80,25 @@ tasks:
   download-asset:
     desc: Download an asset from GitHub
     preconditions:
-      - task: :init:all
-      - sh: '[ {{ quote PACKAGE_NAME }} != "" ]'
-        msg: '.PACKAGE_NAME is not defined'
-      - sh: '[ {{ quote PACKAGE_DIR }} != "" ]'
-        msg: '.PACKAGE_DIR is not defined'
-      - sh: '[ {{ quote DOWNLOAD_URL }} != "" ]'
-        msg: '.DOWNLOAD_URL is not defined'
-      - sh: '[ {{ quote FILE_NAME }} != "" ]'
-        msg: '.FILE_NAME is not defined'
-      - sh: '[ {{ quote BIN_NAME }} != "" ]'
-        msg: '.BIN_NAME is not defined'
-      - sh: 'test -d {{ quote BIN_DIR }}'
-        msg: '{{.BIN_DIR}} does not exist'
-      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
+#      - task: :init:all
+      - sh: '[ ! -z {{ quote .PACKAGE_NAME }} ]'
         msg: |
-          curl is required to download files. Please install 'curl' and try again.
+          PACKAGE_NAME {{ quote .PACKAGE_NAME }} is not defined.
+      - sh: '[ ! -z {{ quote .PACKAGE_DIR }} ]'
+        msg: |
+          PACKAGE_DIR {{ quote .PACKAGE_DIR }} is not defined.
+      - sh: '[ ! -z {{ quote .DOWNLOAD_URL }} ]'
+        msg: |
+          DOWNLOAD_URL {{ quote .DOWNLOAD_URL }} is not defined.
+      - sh: '[ ! -z {{ quote .FILE_NAME }} ]'
+        msg: |
+          FILE_NAME {{ quote .FILE_NAME }} is not defined.
+      - sh: '[ ! -z {{ quote .BIN_NAME }} ]'
+        msg: |
+          BIN_NAME {{ quote .BIN_NAME }} is not defined.
+      - sh: 'test -d {{ quote .BIN_DIR }}'
+        msg: |
+          BIN_DIR {{ quote .BIN_DIR }} does not exist.
       - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
         msg: |
           tar is required to extract files from archives. Please 'install' tar and try again.
@@ -123,9 +126,9 @@ tasks:
             $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
             $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.BASE_NAME}}{{.COMPRESS_EXT}}"
             $ProgressPreference = "SilentlyContinue"
-            Invoke-WebRequest -URI {{ quote REPO_URL }} -OutFile $zip_file
+            Invoke-WebRequest -URI {{ quote .REPO_URL }} -OutFile $zip_file
             Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-            Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath {{ quote NAME }}) -Destination {{.BIN_DIR}}
+            Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath {{ quote .NAME }}) -Destination {{.BIN_DIR}}
             Remove-Item -Path $tmp_dir -Recurse
           '
         platforms: [windows]
@@ -156,23 +159,33 @@ tasks:
     # internal: true
     desc: Get an attribute using the GitHub API. Internal only.
     preconditions:
-      - sh: '[ {{ quote REPO_URL }} != "" ]'
-      - sh: '[ {{ quote ASSET_PATTERN }} != "" ]'
-      - sh: '[ {{ quote ATTRIBUTE }} != "" ]'
-      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
+      - sh: '[ ! -z {{ squote .REPO_URL }} ]'
+        msg: |
+          REPO_URL {{ quote .REPO_URL }} is not defined.
+      - sh: '[ ! -z {{ squote .ASSET_PATTERN }} ]'
+        msg: |
+          ASSET_PATTERN {{ quote .ASSET_PATTERN }} is not defined.
+      - sh: '[ ! -z {{ squote .ATTRIBUTE }} ]'
+        msg: |
+          ATTRIBUTE {{ quote .ATTRIBUTE }} is not defined.
       - sh: '{{ if ne OS "windows"}}command -v yq{{ end }}'
+        msg: |
+          yq is required to parse JSON files. Please install 'yq' and try again.
     cmds:
+      # - cmd: 'echo "REPO_URL: {{.REPO_URL}}"'
+      # - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
+      # - cmd: 'echo "ATTRIBUTE: {{.ATTRIBUTE}}"'
       - cmd: |
           powershell -Command 'Write-Output "FIXME: Not implemented"'
         platforms: [windows]
       - cmd: |
           declare -a asset=($(
-            curl --silent --location --output - '{{.REPO_URL}}' |
-            yq --unwrapScalar '.assets[] | select(.name=={{ quote ASSET_PATTERN }}) | .{{.ATTRIBUTE}}'
+            xh --follow GET {{ squote .REPO_URL }} |
+              yq --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .{{.ATTRIBUTE}}'
           ))
           if [[ ${#asset[@]} -ne 1 ]]; then
             echo 'ASSET_PATTERN did not match exactly 1 asset. Please check the ASSET_PATTERN for correctness.'
-            echo 'ASSET_PATTERN: {{.ASSET_PATTERN}}'
+            echo 'ASSET_PATTERN: {{ quote .ASSET_PATTERN }}'
             exit 1
           else
             echo ${asset[@]}
