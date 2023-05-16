@@ -14,23 +14,34 @@ tasks:
       ARCH: '{{ if .ARCH}}{{.ARCH}}{{ else }}{{ARCH}}{{ end }}'
       BIN_NAME: '{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}'
       REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
-      # Go templates {{ and }} have to be quoted in yaml, forcing the value to be interpreted as a string.
       ASSET_DIR: '{{ if eq .ASSET_DIR "true" }}true{{ end }}'
       # Some packages use x86_64 instead of amd64
+      GITHUB_API:
+        # GITHUB_API is used as a cache to reduce or prevent rate limiting against the GitHub API.
+        sh: |
+          xh --follow GET {{ squote .REPO_URL }} | coreutils base64
       DOWNLOAD_URL:
         sh: |
-          task --silent github:get-attribute ATTRIBUTE='browser_download_url' REPO_URL={{ squote .REPO_URL }} ASSET_PATTERN={{ squote .ASSET_PATTERN}}
+          task --silent github:get-attribute \
+            ATTRIBUTE='browser_download_url' \
+            ASSET_PATTERN={{ squote .ASSET_PATTERN}} \
+            GITHUB_API={{ squote .GITHUB_API }}
       PACKAGE_NAME:
         sh: |
-          task --silent github:get-attribute ATTRIBUTE='name' REPO_URL={{ squote .REPO_URL}} ASSET_PATTERN={{ squote .ASSET_PATTERN}}
-      # TAG_NAME is the version. Currently not used.
+          task --silent github:get-attribute \
+            ATTRIBUTE='name' \
+            ASSET_PATTERN={{ squote .ASSET_PATTERN}} \
+            GITHUB_API={{ squote .GITHUB_API }}
       TAG_NAME:
+        # TAG_NAME is the version. Currently not used.
         sh: |
-          task --silent github:get-attribute ATTRIBUTE='tag_name' REPO_URL={{ squote .REPO_URL}} ASSET_PATTERN={{ squote .ASSET_PATTERN}}
+          task --silent github:get-attribute \
+            ATTRIBUTE='tag_name' \
+            ASSET_PATTERN={{ squote .ASSET_PATTERN}} \
+            GITHUB_API={{ squote .GITHUB_API }}
       COMPRESS_EXT: '{{.COMPRESS_EXT | default "" }}'
       PACKAGE_DIR: '{{.PACKAGE_DIR | default (trimSuffix .COMPRESS_EXT .PACKAGE_NAME) }}'
     preconditions:
-#      - task: :init:all
       - sh: '[ ! -z {{ quote .NAME }} ]'
         msg: |
           NAME {{ quote .NAME }} is not defined.
@@ -40,29 +51,20 @@ tasks:
       - sh: '[ ! -z {{ quote .ASSET_PATTERN }} ]'
         msg: |
           ASSET_PATTERN {{ quote .ASSET_PATTERN }} is not defined.
-      - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
-        msg: |
-          tar is required to extract files from archives. Please install 'tar' and try again.
-      - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
-        msg: |
-          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
-      - sh: '{{ if ne OS "windows"}}command -v unzip{{ end }}'
-        msg: |
-          unzip is required to uncompress files. Please install 'unzip'/'zip' and try again.
     cmds:
       # Use this for debugging
-      - cmd: 'echo "NAME: {{.NAME}}"'
-      - cmd: 'echo "OWNER: {{.OWNER}}"'
-      - cmd: 'echo "REPO: {{.REPO}}"'
-      - cmd: 'echo "ARCH: {{.ARCH}}"'
-      - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
-      - cmd: 'echo "REPO_URL: {{.REPO_URL}}"'
-      - cmd: 'echo "ASSET_DIR: {{.ASSET_DIR}}"'
-      - cmd: 'echo "ASSET_DIR boolean: {{ if .ASSET_DIR }}true{{ else }}false{{ end }}"'
-      - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
-      - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
-      - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
-      - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
+      # - cmd: 'echo "NAME: {{.NAME}}"'
+      # - cmd: 'echo "OWNER: {{.OWNER}}"'
+      # - cmd: 'echo "REPO: {{.REPO}}"'
+      # - cmd: 'echo "ARCH: {{.ARCH}}"'
+      # - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
+      # - cmd: 'echo "REPO_URL: {{.REPO_URL}}"'
+      # - cmd: 'echo "ASSET_DIR: {{.ASSET_DIR}}"'
+      # - cmd: 'echo "ASSET_DIR boolean: {{ if .ASSET_DIR }}true{{ else }}false{{ end }}"'
+      # - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
+      # - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
+      # - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
+      # - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
       - task: download-asset
         vars: {
           COMPRESS_EXT: '{{.COMPRESS_EXT}}',
@@ -75,12 +77,11 @@ tasks:
           BIN_DIR: '{{.BIN_DIR}}',
         }
     status:
-      - "'{{.BIN_NAME}}' --version"
+      - "{{ squote .BIN_NAME }} --version"
 
   download-asset:
     desc: Download an asset from GitHub
     preconditions:
-#      - task: :init:all
       - sh: '[ ! -z {{ quote .PACKAGE_NAME }} ]'
         msg: |
           PACKAGE_NAME {{ quote .PACKAGE_NAME }} is not defined.
@@ -110,15 +111,15 @@ tasks:
           unzip is required to uncompress files. Please install 'unzip'/'zip' and try again.
     cmds:
       # Use this for debugging
-      - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
-      - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
-      - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
-      - cmd: 'echo "ASSET_DIR: {{.ASSET_DIR}}"'
-      - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
-      - cmd: 'echo "FILE_NAME: {{.FILE_NAME}}"'
-      - cmd: 'echo "BIN_NAME: {{.BIN_NAME}}"'
-      - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
-      - cmd: 'echo "ASSET_DIR boolean: {{ if .ASSET_DIR }}true{{ else }}false{{ end }}"'
+      # - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
+      # - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
+      # - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
+      # - cmd: 'echo "ASSET_DIR: {{.ASSET_DIR}}"'
+      # - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
+      # - cmd: 'echo "FILE_NAME: {{.FILE_NAME}}"'
+      # - cmd: 'echo "BIN_NAME: {{.BIN_NAME}}"'
+      # - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
+      # - cmd: 'echo "ASSET_DIR boolean: {{ if .ASSET_DIR }}true{{ else }}false{{ end }}"'
       - cmd: |
           powershell -Command '
             $tmp_file = New-TemporaryFile
@@ -157,30 +158,42 @@ tasks:
     # to assign a variable from a task. As of v3.21.0, a variable cannot be assigned from a task, only the shell output.
     # https://github.com/go-task/task/issues/178
     # internal: true
-    desc: Get an attribute using the GitHub API. Internal only.
+    desc: Get an attribute using the GitHub API. Internal only
+    summary: |
+      This task will get an attribute from the GitHub API. This is meant to be called from other tasks, not run
+      manually.
+
+      Important: It's possible to hit GitHub's API rate limit for anonymous users.
+      https://docs.github.com/en/rest/overview/resources-in-the-rest-api?apiVersion=2022-11-28#rate-limit-headers
     preconditions:
-      - sh: '[ ! -z {{ squote .REPO_URL }} ]'
-        msg: |
-          REPO_URL {{ quote .REPO_URL }} is not defined.
       - sh: '[ ! -z {{ squote .ASSET_PATTERN }} ]'
         msg: |
           ASSET_PATTERN {{ quote .ASSET_PATTERN }} is not defined.
       - sh: '[ ! -z {{ squote .ATTRIBUTE }} ]'
         msg: |
           ATTRIBUTE {{ quote .ATTRIBUTE }} is not defined.
+      - sh: '[ ! -z {{ squote .GITHUB_API }} ]'
+        msg: |
+          GITHUB_API {{ quote .GITHUB_API }} is not defined.
       - sh: '{{ if ne OS "windows"}}command -v yq{{ end }}'
         msg: |
           yq is required to parse JSON files. Please install 'yq' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v xh{{ end }}'
+        msg: |
+          xh is required to download files. Please install 'xh' and try again.
     cmds:
-      # - cmd: 'echo "REPO_URL: {{.REPO_URL}}"'
       # - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
       # - cmd: 'echo "ATTRIBUTE: {{.ATTRIBUTE}}"'
+      # - cmd: 'echo "GITHUB_API: {{.GITHUB_API}}"'
       - cmd: |
           powershell -Command 'Write-Output "FIXME: Not implemented"'
         platforms: [windows]
       - cmd: |
           declare -a asset=($(
-            xh --follow GET {{ squote .REPO_URL }} |
+            cat << EOT |
+          {{.GITHUB_API}}
+          EOT
+              coreutils base64 --decode |
               yq --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .{{.ATTRIBUTE}}'
           ))
           if [[ ${#asset[@]} -ne 1 ]]; then

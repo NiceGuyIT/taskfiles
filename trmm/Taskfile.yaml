@@ -28,7 +28,7 @@ tasks:
       - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
         msg: |
           git is required to clone and work with repos. Please install 'git' and try again.
-      - sh: '[ {{ quote .COMMUNITY_PATH }} != "" ]'
+      - sh: '[ ! -z {{ quote .COMMUNITY_PATH }} ]'
         msg: |
           COMMUNITY_PATH {{ quote .COMMUNITY_PATH }} is not defined. Please set it to the community scripts directory.
       - sh: '[ ! -z {{ squote .TRMM_USER }} ]'
@@ -60,7 +60,7 @@ tasks:
       - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
         msg: |
           git is required to clone and work with repos. Please install 'git' and try again.
-      - sh: '[ {{ quote COMMUNITY_PATH }} != "" ]'
+      - sh: '[ ! -z {{ quote COMMUNITY_PATH }} ]'
         msg: |
           COMMUNITY_PATH is not defined. Please set it to the community scripts directory.
       - sh: '[ ! -z {{ squote .TRMM_USER }} ]'

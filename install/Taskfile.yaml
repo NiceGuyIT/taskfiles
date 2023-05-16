@@ -20,6 +20,7 @@ tasks:
       - task: age-keygen
       - task: cfssl-certinfo
       - task: docker-compose
+      - task: fzf
       - task: lego
       - task: rclone
       - task: ripgrep
@@ -31,16 +32,16 @@ tasks:
     desc: Clean up (remove) installed binaries
     vars:
       BINARIES: |
+        age
+        age-keygen
         cfssl-certinfo
         lego
         rclone
         rg
-        age
-        age-keygen
         sops
     preconditions:
-      - sh: '[ {{ quote BIN_DIR }} != "" ]'
-      - sh: 'test -d {{ quote BIN_DIR }}'
+      - sh: '[ ! -z {{ quote .BIN_DIR }} ]'
+      - sh: 'test -d {{ quote .BIN_DIR }}'
     cmds:
       # - cmd: 'echo BIN_DIR: {{.BIN_DIR}}'
       - cmd: |
@@ -57,7 +58,7 @@ tasks:
     # supported only for Linux.
     # https://docs.docker.com/compose/install/
     # https://github.com/docker/compose
-    desc: Install the 'compose' plugin for "docker compose" v2.
+    desc: Install the 'compose' plugin for "docker compose" v2
     vars:
       BIN_DIR_ROOT: '/usr/local/lib/docker/cli-plugins'
       BIN_DIR_USER: '{{.HOME}}/.docker/cli-plugins'
@@ -66,7 +67,7 @@ tasks:
           {{- if eq OS "windows" -}}
             {{fail "Windows is not supported. Install Docker Desktop for 'docker compose'"}}
           {{- else -}}
-            echo '{{if eq .USER "root" -}} {{.BIN_DIR_ROOT}} {{- else -}} {{.BIN_DIR_USER}} {{- end}}'
+            echo {{if eq .USER "root" -}} {{ squote .BIN_DIR_ROOT }} {{- else -}} {{ squote .BIN_DIR_USER }} {{- end}}
           {{- end -}}
       NAME: compose
       OWNER: docker
@@ -78,15 +79,12 @@ tasks:
     # Docker Desktop.
     platforms: [linux]
     deps:
-      - task: :init:all
+      - task: :init:create-bin-dir
         vars: {
           BIN_DIR: '{{.BIN_DIR}}'
         }
     cmds:
-      # - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
-      # vars are not passed to subtasks automatically.
-      # https://taskfile.dev/usage/#variables
-      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
+      - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
       - task: :github:download
         vars: {
           NAME: '{{.NAME}}',
@@ -102,158 +100,9 @@ tasks:
       # TODO: Check for version numbers to see if it needs to be updated.
       - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
 
-  cfssl-certinfo:
-    # https://github.com/cloudflare/cfssl
-    desc: Install 'cfssl-certinfo' to query certificates
-    vars:
-      NAME: cfssl-certinfo
-      OWNER: cloudflare
-      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
-      ARCH: '{{if eq ARCH "arm64"}}amd64{{else}}{{ARCH}}{{end}}'
-    deps:
-      - :init:all
-    cmds:
-      # vars are not passed to subtasks automatically.
-      # https://taskfile.dev/usage/#variables
-      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github:download
-        vars: {
-          NAME: '{{.NAME}}',
-          OWNER: '{{.OWNER}}',
-          REPO: 'cloudflare/cfssl',
-          ARCH: '{{.ARCH}}',
-          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{exeExt}}',
-        }
-    status:
-      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
-      # root and one in the user's bin directory.
-      # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
-
-  lego:
-    # https://github.com/go-acme/lego
-    desc: Install 'lego', a Let's Encrypt/ACME client.
-    vars:
-      NAME: lego
-      OWNER: go-acme
-      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
-      ARCH: '{{.ARCH | default ARCH}}'
-      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
-    deps:
-      - :init:all
-    cmds:
-      # vars are not passed to subtasks automatically.
-      # https://taskfile.dev/usage/#variables
-      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github:download
-        vars: {
-          NAME: '{{.NAME}}',
-          OWNER: '{{.OWNER}}',
-          ARCH: '{{.ARCH}}',
-          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
-          # Append * to match any COMPRESS_EXT
-          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{.COMPRESS_EXT}}',
-        }
-    status:
-      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
-      # root and one in the user's bin directory.
-      # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
-
-  rclone:
-    # https://github.com/rclone/rclone
-    desc: Install 'rclone', rsync for cloud storage.
-    vars:
-      NAME: rclone
-      OWNER: rclone
-      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
-      ARCH: '{{.ARCH | default ARCH}}'
-      OS: '{{ if eq OS "darwin" }}osx{{ else }}{{OS}}{{end}}'
-      COMPRESS_EXT: '.zip'
-    deps:
-      - :init:all
-    cmds:
-      # vars are not passed to subtasks automatically.
-      # https://taskfile.dev/usage/#variables
-      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github:download
-        vars: {
-          NAME: '{{.NAME}}',
-          OWNER: '{{.OWNER}}',
-          ARCH: '{{.ARCH}}',
-          ASSET_DIR: true,
-          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
-          ASSET_PATTERN: '{{.NAME}}-*-{{.OS}}-{{.ARCH}}{{.COMPRESS_EXT}}',
-        }
-    status:
-      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
-      # root and one in the user's bin directory.
-      # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" version'
-
-  fzf:
-    # https://github.com/junegunn/fzf
-    desc: Install 'fzf', a command-line fuzzy finder
-    vars:
-      NAME: fzf
-      OWNER: junegunn
-      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
-      ARCH: '{{.ARCH | default ARCH}}'
-      COMPRESS_EXT: '.zip'
-    cmds:
-      # vars are not passed to subtasks automatically.
-      # https://taskfile.dev/usage/#variables
-      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github:download
-        vars: {
-          NAME: '{{.NAME}}',
-          OWNER: '{{.OWNER}}',
-          ARCH: '{{.ARCH}}',
-          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
-          ASSET_PATTERN: '{{.NAME}}-*-{{OS}}_{{.ARCH}}{{.COMPRESS_EXT}}',
-        }
-    #status:
-      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
-      # root and one in the user's bin directory.
-      # TODO: Check for version numbers to see if it needs to be updated.
-      #- '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --version'
-
-  ripgrep:
-    # https://github.com/BurntSushi/ripgrep
-    desc: Install 'ripgrep' (command 'rg'), an enhanced grep.
-    aliases: [rg]
-    vars:
-      NAME: ripgrep
-      OWNER: BurntSushi
-      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
-      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
-      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
-      FILE_NAME: 'rg'
-    deps:
-      - :init:all
-    cmds:
-      # vars are not passed to subtasks automatically.
-      # https://taskfile.dev/usage/#variables
-      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
-      - task: :github:download
-        vars: {
-          NAME: '{{.NAME}}',
-          OWNER: '{{.OWNER}}',
-          ARCH: '{{.ARCH}}',
-          FILE_NAME: '{{.FILE_NAME}}',
-          ASSET_DIR: true,
-          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
-          ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-unknown-{{OS}}-musl{{.COMPRESS_EXT}}',
-        }
-    status:
-      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
-      # root and one in the user's bin directory.
-      # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'
-
   age:
     # https://github.com/FiloSottile/age
-    desc: Install 'age' file encryption.
+    desc: Install 'age' file encryption
     vars:
       NAME: age
       OWNER: FiloSottile
@@ -263,9 +112,6 @@ tasks:
     deps:
       - :init:all
     cmds:
-      # vars are not passed to subtasks automatically.
-      # https://taskfile.dev/usage/#variables
-      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
       - task: :github:download
         vars: {
           NAME: '{{.NAME}}',
@@ -284,7 +130,7 @@ tasks:
 
   age-keygen:
     # https://github.com/FiloSottile/age
-    desc: Install 'age-keygen' from the age file encryption package.
+    desc: Install 'age-keygen' from the age file encryption package
     vars:
       NAME: age
       OWNER: FiloSottile
@@ -295,9 +141,6 @@ tasks:
     deps:
       - :init:all
     cmds:
-      # vars are not passed to subtasks automatically.
-      # https://taskfile.dev/usage/#variables
-      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
       - task: :github:download
         vars: {
           NAME: '{{.NAME}}',
@@ -315,9 +158,219 @@ tasks:
       # TODO: Check for version numbers to see if it needs to be updated.
       - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'
 
+  cfssl-certinfo:
+    # https://github.com/cloudflare/cfssl
+    desc: Install 'cfssl-certinfo' to query certificates
+    vars:
+      NAME: cfssl-certinfo
+      OWNER: cloudflare
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{if eq ARCH "arm64"}}amd64{{else}}{{ARCH}}{{end}}'
+    deps:
+      - :init:all
+    cmds:
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          REPO: 'cloudflare/cfssl',
+          ARCH: '{{.ARCH}}',
+          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{exeExt}}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
+
+  alacritty:
+    # https://github.com/alacritty/alacritty
+    desc: Install 'alacritty', a fast, cross-platform, OpenGL terminal emulator
+    vars:
+      NAME: alacritty
+      OWNER: alacritty
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+    cmds:
+      # 'task --verbose' will cause task to run the command to process the Go template to display what it _would_
+      # run. This has the side effect of executing the dynamic variables in the task.
+      - cmd: |
+          task --silent github:download \
+            NAME={{ squote .NAME }} \
+            OWNER={{ squote .OWNER }} \
+            ARCH={{ squote .ARCH }} \
+            ASSET_PATTERN='Alacritty-*-portable{{.exeExt}}'
+        platforms: [windows]
+      - cmd: |
+          if command -v brew >/dev/null; then
+            echo "Installing alacritty"
+            echo brew install alacritty
+          else
+            echo "brew is not installed"
+            exit 1
+          fi
+        platforms: [darwin]
+      - cmd: |
+          if command -v cargo >/dev/null; then
+            echo "Installing alacritty"
+            cargo install alacritty
+          else
+            echo "cargo is not installed"
+            exit 1
+          fi
+        platforms: [linux]
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
+
+  atuin:
+    # https://github.com/ellie/atuin
+    desc: Install 'atuin', magical shell history
+    vars:
+      NAME: atuin
+      OWNER: ellie
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+    # deps:
+    #   - :init:all
+    cmds:
+      # 'task --verbose' will cause task to run the command to process the Go template to display what it _would_
+      # run. This has the side effect of executing the dynamic variables in the task.
+      - cmd: |
+          task --silent github:download \
+            NAME={{ squote .NAME }} \
+            OWNER={{ squote .OWNER }} \
+            ARCH={{ squote .ARCH }} \
+            ASSET_DIR='true' \
+            COMPRESS_EXT={{ squote .COMPRESS_EXT }} \
+            ASSET_PATTERN='{{.NAME}}-*-{{.ARCH}}-unknown-{{OS}}-musl{{.COMPRESS_EXT}}'
+        platforms: [darwin, linux]
+      - cmd: |
+          echo "Windows is not supported"
+          echo "See https://github.com/ellie/atuin/issues/618#issuecomment-1318324668"
+        platforms: [windows]
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'
+
+  fzf:
+    # https://github.com/junegunn/fzf
+    desc: Install 'fzf', a command-line fuzzy finder
+    vars:
+      NAME: fzf
+      OWNER: junegunn
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{.ARCH | default ARCH}}'
+      COMPRESS_EXT: '.zip'
+    cmds:
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          ASSET_PATTERN: '{{.NAME}}-*-{{OS}}_{{.ARCH}}{{.COMPRESS_EXT}}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --version'
+
+  lego:
+    # https://github.com/go-acme/lego
+    desc: Install 'lego', a Let's Encrypt/ACME client
+    vars:
+      NAME: lego
+      OWNER: go-acme
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{.ARCH | default ARCH}}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+    deps:
+      - :init:all
+    cmds:
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          # Append * to match any COMPRESS_EXT
+          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{.COMPRESS_EXT}}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
+
+  rclone:
+    # https://github.com/rclone/rclone
+    desc: Install 'rclone', rsync for cloud storage
+    vars:
+      NAME: rclone
+      OWNER: rclone
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{.ARCH | default ARCH}}'
+      OS: '{{ if eq OS "darwin" }}osx{{ else }}{{OS}}{{end}}'
+      COMPRESS_EXT: '.zip'
+    deps:
+      - :init:all
+    cmds:
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          ASSET_DIR: true,
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          ASSET_PATTERN: '{{.NAME}}-*-{{.OS}}-{{.ARCH}}{{.COMPRESS_EXT}}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" version'
+
+  ripgrep:
+    # https://github.com/BurntSushi/ripgrep
+    desc: Install 'ripgrep' (command 'rg'), an enhanced grep
+    aliases: [rg]
+    vars:
+      NAME: ripgrep
+      OWNER: BurntSushi
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+      FILE_NAME: 'rg'
+    deps:
+      - :init:all
+    cmds:
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          FILE_NAME: '{{.FILE_NAME}}',
+          ASSET_DIR: true,
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-unknown-{{OS}}-musl{{.COMPRESS_EXT}}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'
+
   sops:
     # https://github.com/mozilla/sops
-    desc: Install 'sops', a simple and flexible tool for managing secrets.
+    desc: Install 'sops', a simple and flexible tool for managing secrets
     vars:
       NAME: sops
       OWNER: mozilla
@@ -326,9 +379,6 @@ tasks:
     deps:
       - :init:all
     cmds:
-      # vars are not passed to subtasks automatically.
-      # https://taskfile.dev/usage/#variables
-      # https://github.com/go-task/task/issues/888#issuecomment-1273264393
       - task: :github:download
         vars: {
           NAME: '{{.NAME}}',

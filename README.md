@@ -155,6 +155,8 @@ of task.
       workaround is to add the task to the `cmds` list.
 - Adding the task as another `cmd` in the `cmds` list works even though it goes against the design concepts of task.
     - Adding the task can be done with `task: :namespace:task-name`.
+- Go templates' `{{` and `}}` have to be quoted in yaml, forcing the value to be interpreted as a string.
+- Use `base64` to pass JSON between tasks, so you don't have to worry about quoting.
 
 [issue #178]: https://github.com/go-task/task/issues/178
 
@@ -163,5 +165,8 @@ of task.
 - For double quotes, prefer `{{ quote .MY_VARIABLE }}` over `"{{.MY_VARIABLE}}"` to escape double quotes.
 - Likewise with single quotes, prefer `{{ squote .MY_VARIABLE }}` over `'{{.MY_VARIABLE}}'` to escape single quotes.
 - See this [SO answer][] for nesting conditionals in Go templates.
+- vars are not passed to subtasks automatically; they need to be passed explicitly.
+
 
 [SO answer]: https://stackoverflow.com/a/68361609
+[passed explicitly]: https://github.com/go-task/task/issues/888#issuecomment-1273264393

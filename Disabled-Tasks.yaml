@@ -139,9 +139,9 @@ tasks:
       - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
         msg: |
           git is required to clone and work with repos. Please install 'git' and try again.
-      - sh: '[ {{ quote .REPO_DIR }} != "" ]'
+      - sh: '[ ! -z {{ quote .REPO_DIR }} ]'
         msg: REPO_DIR is not defined. Please set it to the community scripts directory.
-      - sh: '[ {{ quote .UPSTREAM_REPO }} != "" ]'
+      - sh: '[ ! -z {{ quote .UPSTREAM_REPO }} ]'
         msg: UPSTREAM_REPO is not defined. Please set it to the upstream git repo for your scripts.
     cmds:
       - cmd: 'echo "TRMM_USER: {{.TRMM_USER}}"'
@@ -195,11 +195,11 @@ tasks:
       - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
         msg: |
           git is required to clone repos. Please install 'git' and try again.
-      - sh: '[ {{ quote REPO_DIR }} != "" ]'
+      - sh: '[ ! -z {{ quote .REPO_DIR }} ]'
         msg: 'REPO_DIR is not defined. Please set it to the community scripts directory.'
-      - sh: '[ {{ quote UPSTREAM_NAME }} != "" ]'
+      - sh: '[ ! -z {{ quote .UPSTREAM_NAME }} ]'
         msg: 'UPSTREAM_NAME is not defined. Please set it to the name of an upstream git repo.'
-      - sh: '[ {{ quote UPSTREAM_BRANCH }} != "" ]'
+      - sh: '[ ! -z {{ quote .UPSTREAM_BRANCH }} ]'
         msg: 'UPSTREAM_BRANCH is not defined. Please set it to the name of the upstream branch.'
     platforms: [linux]
     cmds:
