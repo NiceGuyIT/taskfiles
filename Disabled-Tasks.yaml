@@ -47,7 +47,7 @@ tasks:
           chmod a+x {{.BIN_NAME}}
         platforms: [linux, darwin]
       - cmd: |
-          powershell -Command '
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
             $tmp_file = New-TemporaryFile
             Remove-Item -Path $tmp_file
             $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
@@ -96,7 +96,7 @@ tasks:
     cmds:
       - cmd: |
           {{if eq OS "windows"}}
-            powershell -Command '
+            powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
               $tmp_file = New-TemporaryFile
               Remove-Item -Path $tmp_file
               $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)

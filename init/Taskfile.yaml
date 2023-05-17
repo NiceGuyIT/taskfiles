@@ -33,13 +33,21 @@ tasks:
     cmds:
       - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
       - cmd: |
-          {{- if eq OS "windows" -}}
-              powershell -Command New-Item -Path {{ squote .BIN_DIR }} -ItemType Directory
-          {{- else -}}
-              mkdir --parents {{ squote .BIN_DIR }}
-          {{- end -}}
+          mkdir --parents {{ osClean .BIN_DIR }}
+        platforms: [linux, darwin]
+        # FIXME: Check if BIN_DIR is already in the path for the user
+      - cmd: |
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
+            if (-not (Test-Path -Path {{ squote .BIN_DIR }})) {
+              New-Item -Path {{ squote .BIN_DIR }} -ItemType Directory
+            }
+            $value = Get-ItemProperty -Path HKCU:\Environment -Name Path
+            $newpath = $value.Path += "{{ (print ";" .BIN_DIR) }}"
+            Set-ItemProperty -Path HKCU:\Environment -Name Path -Value $newpath
+          '
+        platforms: [windows]
     status:
-      - test -d {{ squote .BIN_DIR }}
+      - test -d {{ osClean .BIN_DIR }}
 
   dl-yq:
     # https://github.com/mikefarah/yq
@@ -63,7 +71,7 @@ tasks:
       - curl --silent --location --output {{ squote .BIN_NAME }} {{ squote .REPO_URL }}
       - '{{ if ne OS "windows"}}chmod a+x {{.BIN_NAME}}{{ end }}'
     status:
-      - "{{ squote .BIN_NAME }} --version"
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
 
   dl-task:
     # https://github.com/go-task/task/
@@ -92,25 +100,25 @@ tasks:
           gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
     cmds:
       - cmd: |
-          {{ if eq OS "windows"}}
-            powershell -Command '
-              $tmp_file = New-TemporaryFile
-              Remove-Item -Path $tmp_file
-              $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
-              $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
-              $ProgressPreference = "SilentlyContinue"
-              Invoke-WebRequest -URI {{ quote .REPO_URL }} -OutFile $zip_file
-              Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-              Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath {{ quote .NAME }}) -Destination {{.BIN_DIR}}
-              Remove-Item -Path $tmp_dir -Recurse
-            '
-          {{ else }}
-            curl --location --output - {{ squote .REPO_URL }} |
-            tar -C {{ squote .BIN_DIR }} -zxf - {{ squote .NAME}}
-            chmod a+x {{.BIN_NAME}}
-          {{ end }}
+          curl --location --output - {{ squote .REPO_URL }} |
+          tar -C {{ squote .BIN_DIR }} -zxf - {{ squote .NAME}}
+          chmod a+x {{.BIN_NAME}}
+        platforms: [linux, darwin]
+      - cmd: |
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
+            $tmp_file = New-TemporaryFile
+            Remove-Item -Path $tmp_file
+            $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
+            $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
+            $ProgressPreference = "SilentlyContinue"
+            Invoke-WebRequest -URI {{ quote .REPO_URL }} -OutFile $zip_file
+            Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
+            Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath {{ quote .FILE_NAME }}) -Destination {{.BIN_DIR}}
+            Remove-Item -Path $tmp_dir -Recurse
+          '
+        platforms: [windows]
     status:
-      - "{{ squote .BIN_NAME }} --version"
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
 
   dl-xh:
     # https://github.com/ducaale/xh
@@ -155,25 +163,26 @@ tasks:
           gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
     cmds:
       - cmd: |
-          {{ if eq OS "windows"}}
-            powershell -Command '
-              $tmp_file = New-TemporaryFile
-              Remove-Item -Path $tmp_file
-              $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
-              $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
-              $ProgressPreference = "SilentlyContinue"
-              Invoke-WebRequest -URI {{ quote .REPO_URL }} -OutFile $zip_file
-              Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-              Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath {{ quote .NAME }}) -Destination {{.BIN_DIR}}
-              Remove-Item -Path $tmp_dir -Recurse
-            '
-          {{ else }}
-            curl --silent --location --output - {{ squote .DOWNLOAD_URL }} |
-            tar --directory {{ squote .BIN_DIR }} --strip-components 1 -zxf - {{ squote (print .PACKAGE_DIR "/" .FILE_NAME) }}
-            chmod a+x {{ squote .BIN_NAME}}
-          {{ end }}
+          curl --silent --location --output - {{ squote .DOWNLOAD_URL }} |
+          tar --directory {{ squote .BIN_DIR }} --strip-components 1 -zxf - {{ squote (print .PACKAGE_DIR "/" .FILE_NAME) }}
+          chmod a+x {{ squote .BIN_NAME}}
+        platforms: [linux, darwin]
+      - cmd: |
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
+            $tmp_file = New-TemporaryFile
+            Remove-Item -Path $tmp_file
+            $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
+            $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
+            $ProgressPreference = "SilentlyContinue"
+            Invoke-WebRequest -URI {{ quote .DOWNLOAD_URL }} -OutFile $zip_file
+            Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
+            $bin_file = Join-Path -Path $tmp_dir -ChildPath {{ quote .PACKAGE_DIR }} | Join-Path -ChildPath {{ quote .FILE_NAME }}
+            Copy-Item -Path $bin_file -Destination {{ quote .BIN_DIR }}
+            Remove-Item -Path $tmp_dir -Recurse
+          '
+        platforms: [windows]
     status:
-      - "{{ squote .BIN_NAME }} --version"
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
 
   dl-coreutils:
     # https://github.com/uutils/coreutils
@@ -189,7 +198,7 @@ tasks:
       BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
       ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
-      ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ end }}{{.COMPRESS_EXT}}'
+      ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ else if eq OS "windows" }}-gnu{{ end }}{{.COMPRESS_EXT}}'
       REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
       # FIXME: The dynamic variables are executed before determining the status, resulting in 2 unauthenticated calls
       # FIXME: to the GitHub API. This should be fixed.
@@ -217,22 +226,23 @@ tasks:
           gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
     cmds:
       - cmd: |
-          {{ if eq OS "windows"}}
-            powershell -Command '
-              $tmp_file = New-TemporaryFile
-              Remove-Item -Path $tmp_file
-              $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
-              $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
-              $ProgressPreference = "SilentlyContinue"
-              Invoke-WebRequest -URI {{ quote .REPO_URL }} -OutFile $zip_file
-              Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-              Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath {{ quote .NAME }}) -Destination {{.BIN_DIR}}
-              Remove-Item -Path $tmp_dir -Recurse
-            '
-          {{ else }}
-            curl --silent --location --output - {{ squote .DOWNLOAD_URL }} |
-            tar --directory {{ squote .BIN_DIR }} --strip-components 1 -zxf - {{ squote (print .PACKAGE_DIR "/" .FILE_NAME) }}
-            chmod a+x {{ squote .BIN_NAME}}
-          {{ end }}
+          curl --silent --location --output - {{ squote .DOWNLOAD_URL }} |
+          tar --directory {{ squote .BIN_DIR }} --strip-components 1 -zxf - {{ squote (print .PACKAGE_DIR "/" .FILE_NAME) }}
+          chmod a+x {{ squote .BIN_NAME}}
+        platforms: [linux, darwin]
+      - cmd: |
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
+            $tmp_file = New-TemporaryFile
+            Remove-Item -Path $tmp_file
+            $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
+            $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
+            $ProgressPreference = "SilentlyContinue"
+            Invoke-WebRequest -URI {{ quote .DOWNLOAD_URL }} -OutFile $zip_file
+            Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
+            $bin_file = Join-Path -Path $tmp_dir -ChildPath {{ quote .PACKAGE_DIR }} | Join-Path -ChildPath {{ quote .FILE_NAME }}
+            Copy-Item -Path $bin_file -Destination {{ quote .BIN_DIR }}
+            Remove-Item -Path $tmp_dir -Recurse
+          '
+        platforms: [windows]
     status:
-      - "{{ squote .BIN_NAME }} --version"
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'

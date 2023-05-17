@@ -5,7 +5,10 @@ vars:
   SOFTWARE_LIST: |
     age
     age-keygen
+    alacritty
+    atuin
     cfssl-certinfo
+    fzf
     lego
     rclone
     ripgrep
@@ -18,6 +21,8 @@ tasks:
     cmds:
       - task: age
       - task: age-keygen
+      - task: alacritty
+      - task: atuin
       - task: cfssl-certinfo
       - task: docker-compose
       - task: fzf
@@ -34,7 +39,10 @@ tasks:
       BINARIES: |
         age
         age-keygen
+        alacritty
+        atuin
         cfssl-certinfo
+        fzf
         lego
         rclone
         rg
@@ -74,6 +82,7 @@ tasks:
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{ if eq ARCH "amd64" }}x86_64{{ else if eq ARCH "arm64" }}aarch64{{ else }}{{ARCH}}{{ end }}'
       ASSET_PATTERN: '{{.OWNER}}_{{.NAME}}_{{OS}}_{{.ARCH}}{{exeExt}}'
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
     # TODO: Should other OS's be supported?
     # Officially, manually installing "compose" is supported only on Linux. Other OS's are expected to install
     # Docker Desktop.
@@ -98,7 +107,7 @@ tasks:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
       # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'
 
   age:
     # https://github.com/FiloSottile/age
@@ -109,8 +118,7 @@ tasks:
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{.ARCH | default ARCH}}'
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
-    deps:
-      - :init:all
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
     cmds:
       - task: :github:download
         vars: {
@@ -126,7 +134,7 @@ tasks:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
       # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
 
   age-keygen:
     # https://github.com/FiloSottile/age
@@ -137,9 +145,8 @@ tasks:
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{.ARCH | default ARCH}}'
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
-      FILE_NAME: 'age-keygen'
-    deps:
-      - :init:all
+      FILE_NAME: 'age-keygen{{exeExt}}'
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
     cmds:
       - task: :github:download
         vars: {
@@ -156,7 +163,7 @@ tasks:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
       # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'
+      - '"{{ osClean (print .BIN_DIR "/" .FILE_NAME) }}" --version'
 
   cfssl-certinfo:
     # https://github.com/cloudflare/cfssl
@@ -166,8 +173,7 @@ tasks:
       OWNER: cloudflare
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{if eq ARCH "arm64"}}amd64{{else}}{{ARCH}}{{end}}'
-    deps:
-      - :init:all
+      SEMVER_REGEX: ''
     cmds:
       - task: :github:download
         vars: {
@@ -181,7 +187,7 @@ tasks:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
       # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'
 
   alacritty:
     # https://github.com/alacritty/alacritty
@@ -192,6 +198,7 @@ tasks:
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
     cmds:
       # 'task --verbose' will cause task to run the command to process the Go template to display what it _would_
       # run. This has the side effect of executing the dynamic variables in the task.
@@ -200,7 +207,7 @@ tasks:
             NAME={{ squote .NAME }} \
             OWNER={{ squote .OWNER }} \
             ARCH={{ squote .ARCH }} \
-            ASSET_PATTERN='Alacritty-*-portable{{.exeExt}}'
+            ASSET_PATTERN='Alacritty-*-portable{{exeExt}}'
         platforms: [windows]
       - cmd: |
           if command -v brew >/dev/null; then
@@ -224,7 +231,7 @@ tasks:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
       # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'
 
   atuin:
     # https://github.com/ellie/atuin
@@ -235,8 +242,7 @@ tasks:
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
-    # deps:
-    #   - :init:all
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
     cmds:
       # 'task --verbose' will cause task to run the command to process the Go template to display what it _would_
       # run. This has the side effect of executing the dynamic variables in the task.
@@ -257,7 +263,7 @@ tasks:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
       # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
 
   fzf:
     # https://github.com/junegunn/fzf
@@ -268,6 +274,7 @@ tasks:
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{.ARCH | default ARCH}}'
       COMPRESS_EXT: '.zip'
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
     cmds:
       - task: :github:download
         vars: {
@@ -281,7 +288,7 @@ tasks:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
       # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --version'
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
 
   lego:
     # https://github.com/go-acme/lego
@@ -292,8 +299,7 @@ tasks:
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{.ARCH | default ARCH}}'
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
-    deps:
-      - :init:all
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
     cmds:
       - task: :github:download
         vars: {
@@ -308,7 +314,7 @@ tasks:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
       # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" --help'
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'
 
   rclone:
     # https://github.com/rclone/rclone
@@ -320,8 +326,7 @@ tasks:
       ARCH: '{{.ARCH | default ARCH}}'
       OS: '{{ if eq OS "darwin" }}osx{{ else }}{{OS}}{{end}}'
       COMPRESS_EXT: '.zip'
-    deps:
-      - :init:all
+      SEMVER_REGEX: 'v[0-9]+\.([0-9]+\.?){1,}'
     cmds:
       - task: :github:download
         vars: {
@@ -336,7 +341,7 @@ tasks:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
       # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.NAME}}" version'
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
 
   ripgrep:
     # https://github.com/BurntSushi/ripgrep
@@ -348,9 +353,8 @@ tasks:
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
-      FILE_NAME: 'rg'
-    deps:
-      - :init:all
+      FILE_NAME: 'rg{{exeExt}}'
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
     cmds:
       - task: :github:download
         vars: {
@@ -360,13 +364,13 @@ tasks:
           FILE_NAME: '{{.FILE_NAME}}',
           ASSET_DIR: true,
           COMPRESS_EXT: '{{.COMPRESS_EXT}}',
-          ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-unknown-{{OS}}-musl{{.COMPRESS_EXT}}',
+          ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ else if eq OS "windows" }}-gnu{{ end }}{{.COMPRESS_EXT}}'
         }
     status:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
       # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'
+      - '"{{ osClean (print .BIN_DIR "/" .FILE_NAME) }}" --version'
 
   sops:
     # https://github.com/mozilla/sops
@@ -376,18 +380,17 @@ tasks:
       OWNER: mozilla
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{.ARCH | default ARCH}}'
-    deps:
-      - :init:all
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
     cmds:
       - task: :github:download
         vars: {
           NAME: '{{.NAME}}',
           OWNER: '{{.OWNER}}',
           ARCH: '{{.ARCH}}',
-          ASSET_PATTERN: '{{.NAME}}-*.{{OS}}.{{.ARCH}}',
+          ASSET_PATTERN: '{{.NAME}}-*{{ if eq OS "windows" }}{{exeExt}}{{ else }}.{{OS}}.{{.ARCH}}{{ end }}',
         }
     status:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
       # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}" --version'
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
