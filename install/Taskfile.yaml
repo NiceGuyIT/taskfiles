@@ -240,7 +240,9 @@ tasks:
       NAME: atuin
       OWNER: ellie
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
-      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
+      # arm64 build for Apple darwin is in the GitHub config but is not built. Use x86_64 for now.
+      # See https://github.com/ellie/atuin/blob/main/.github/workflows/release.yaml#L33
+      ARCH: '{{ if or (eq ARCH "amd64") (eq ARCH "arm64") }}x86_64{{ else }}{{ARCH}}{{ end }}'
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
       SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
     cmds:
@@ -253,7 +255,7 @@ tasks:
             ARCH={{ squote .ARCH }} \
             ASSET_DIR='true' \
             COMPRESS_EXT={{ squote .COMPRESS_EXT }} \
-            ASSET_PATTERN='{{.NAME}}-*-{{.ARCH}}-unknown-{{OS}}-musl{{.COMPRESS_EXT}}'
+            ASSET_PATTERN='{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux" }}-musl{{ end }}{{.COMPRESS_EXT}}'
         platforms: [darwin, linux]
       - cmd: |
           echo "Windows is not supported"
@@ -351,7 +353,9 @@ tasks:
       NAME: ripgrep
       OWNER: BurntSushi
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
-      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
+      # arm64 build for Apple darwin is in the works. Use x86_64 for now.
+      # https://github.com/BurntSushi/ripgrep/issues/1737
+      ARCH: '{{ if or (eq ARCH "amd64") (eq ARCH "arm64") }}x86_64{{ else }}{{ARCH}}{{ end }}'
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
       FILE_NAME: 'rg{{exeExt}}'
       SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
@@ -365,6 +369,7 @@ tasks:
           ASSET_DIR: true,
           COMPRESS_EXT: '{{.COMPRESS_EXT}}',
           ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ else if eq OS "windows" }}-gnu{{ end }}{{.COMPRESS_EXT}}'
+          # ripgrep-13.0.0-x86_64-apple-darwin.tar.gz
         }
     status:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
