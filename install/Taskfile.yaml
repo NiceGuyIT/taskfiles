@@ -353,6 +353,36 @@ tasks:
       # TODO: Check for version numbers to see if it needs to be updated.
       - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'
 
+  micro:
+    # https://github.com/zyedidia/micro
+    desc: Install 'micro', a modern and intuitive terminal-based text editor
+    vars:
+      NAME: micro
+      OWNER: zyedidia
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{ if eq ARCH "amd64" }}64{{ else if eq ARCH "arm64" }}-arm64{{ else }}{{ARCH}}{{ end }}'
+      OS: '{{ if eq OS "windows" }}win{{ else if eq OS "darwin" }}osx{{ else }}{{OS}}{{ end }}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
+    cmds:
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          # FIXME: The current implementation uses PACKAGE_NAME/NAME which results in micro-2.0.11-linux64-static/micro
+          # FIXME: The actual directory is micro-2.0.11/micro
+          ASSET_DIR: 'true',
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          # Append * to match any COMPRESS_EXT
+          ASSET_PATTERN: '{{.NAME}}-*-{{.OS}}{{.ARCH}}{{ if eq OS "linux" }}-static{{ end }}{{.COMPRESS_EXT}}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'
+
   ouch:
     # https://github.com/ouch-org/ouch
     desc: Install 'ouch', the painless compression and decompression for your terminal
@@ -373,6 +403,35 @@ tasks:
           COMPRESS_EXT: '{{.COMPRESS_EXT}}',
           ASSET_PATTERN: '{{.NAME}}-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ else if eq OS "windows" }}-gnu{{ end }}{{.COMPRESS_EXT}}'
         }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
+
+  peep:
+    # https://github.com/ryochack/peep
+    desc: Install 'peep', the CLI text viewer tool that works like less command on small pane within the terminal window
+    vars:
+      NAME: peep
+      OWNER: ryochack
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
+      COMPRESS_EXT: '.zip'
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
+    cmds:
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ end }}{{.COMPRESS_EXT}}'
+        }
+        platforms: [linux, darwin]
+      - cmd: |
+          echo "Windows is not supported"
+        platforms: [windows]
     status:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
       # root and one in the user's bin directory.
