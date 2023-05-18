@@ -8,11 +8,14 @@ vars:
     alacritty
     atuin
     cfssl-certinfo
+    fd
     fzf
     lego
+    ouch
     rclone
     ripgrep
     sops
+    starship
 
 tasks:
 
@@ -25,11 +28,14 @@ tasks:
       - task: atuin
       - task: cfssl-certinfo
       - task: docker-compose
+      - task: fd
       - task: fzf
       - task: lego
+      - task: ouch
       - task: rclone
       - task: ripgrep
       - task: sops
+      - task: starship
 
   uninstall:
     # docker-compose needs special treatment to remove.
@@ -42,11 +48,14 @@ tasks:
         alacritty
         atuin
         cfssl-certinfo
+        fd
         fzf
         lego
+        ouch
         rclone
         rg
         sops
+        starship
     preconditions:
       - sh: '[ ! -z {{ quote .BIN_DIR }} ]'
       - sh: 'test -d {{ quote .BIN_DIR }}'
@@ -165,30 +174,6 @@ tasks:
       # TODO: Check for version numbers to see if it needs to be updated.
       - '"{{ osClean (print .BIN_DIR "/" .FILE_NAME) }}" --version'
 
-  cfssl-certinfo:
-    # https://github.com/cloudflare/cfssl
-    desc: Install 'cfssl-certinfo' to query certificates
-    vars:
-      NAME: cfssl-certinfo
-      OWNER: cloudflare
-      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
-      ARCH: '{{if eq ARCH "arm64"}}amd64{{else}}{{ARCH}}{{end}}'
-      SEMVER_REGEX: ''
-    cmds:
-      - task: :github:download
-        vars: {
-          NAME: '{{.NAME}}',
-          OWNER: '{{.OWNER}}',
-          REPO: 'cloudflare/cfssl',
-          ARCH: '{{.ARCH}}',
-          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{exeExt}}',
-        }
-    status:
-      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
-      # root and one in the user's bin directory.
-      # TODO: Check for version numbers to see if it needs to be updated.
-      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'
-
   alacritty:
     # https://github.com/alacritty/alacritty
     desc: Install 'alacritty', a fast, cross-platform, OpenGL terminal emulator
@@ -267,6 +252,56 @@ tasks:
       # TODO: Check for version numbers to see if it needs to be updated.
       - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
 
+  cfssl-certinfo:
+    # https://github.com/cloudflare/cfssl
+    desc: Install 'cfssl-certinfo' to query certificates
+    vars:
+      NAME: cfssl-certinfo
+      OWNER: cloudflare
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{if eq ARCH "arm64"}}amd64{{else}}{{ARCH}}{{end}}'
+      SEMVER_REGEX: ''
+    cmds:
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          REPO: 'cloudflare/cfssl',
+          ARCH: '{{.ARCH}}',
+          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{exeExt}}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'
+
+  fd:
+    # https://github.com/sharkdp/fd
+    desc: Install 'fzf', a simple, fast and user-friendly alternative to 'find'
+    vars:
+      NAME: fd
+      OWNER: sharkdp
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{ if or (eq ARCH "amd64") (eq ARCH "arm64") }}x86_64{{ else }}{{ARCH}}{{ end }}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
+    cmds:
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          ASSET_DIR: 'true',
+          ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux" }}-musl{{ end }}{{.COMPRESS_EXT}}'
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
+
   fzf:
     # https://github.com/junegunn/fzf
     desc: Install 'fzf', a command-line fuzzy finder
@@ -317,6 +352,32 @@ tasks:
       # root and one in the user's bin directory.
       # TODO: Check for version numbers to see if it needs to be updated.
       - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'
+
+  ouch:
+    # https://github.com/ouch-org/ouch
+    desc: Install 'ouch', the painless compression and decompression for your terminal
+    vars:
+      NAME: ouch
+      OWNER: ouch-org
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+      SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
+    cmds:
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          ASSET_DIR: true,
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          ASSET_PATTERN: '{{.NAME}}-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ else if eq OS "windows" }}-gnu{{ end }}{{.COMPRESS_EXT}}'
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
 
   rclone:
     # https://github.com/rclone/rclone
@@ -369,7 +430,6 @@ tasks:
           ASSET_DIR: true,
           COMPRESS_EXT: '{{.COMPRESS_EXT}}',
           ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ else if eq OS "windows" }}-gnu{{ end }}{{.COMPRESS_EXT}}'
-          # ripgrep-13.0.0-x86_64-apple-darwin.tar.gz
         }
     status:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
@@ -393,6 +453,31 @@ tasks:
           OWNER: '{{.OWNER}}',
           ARCH: '{{.ARCH}}',
           ASSET_PATTERN: '{{.NAME}}-*{{ if eq OS "windows" }}{{exeExt}}{{ else }}.{{OS}}.{{.ARCH}}{{ end }}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
+
+  starship:
+    # https://github.com/starship/starship
+    desc: Install 'starship', the minimal, blazing-fast, and infinitely customizable prompt for any shell
+    vars:
+      NAME: starship
+      OWNER: starship
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{if eq ARCH "amd64"}}x86_64{{else}}{{ARCH}}{{end}}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+      SEMVER_REGEX: 'v[0-9]+\.([0-9]+\.?){1,}'
+    cmds:
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          ARCH: '{{.ARCH}}',
+          COMPRESS_EXT: '{{.COMPRESS_EXT}}',
+          ASSET_PATTERN: '{{.NAME}}-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ else if eq OS "windows" }}-msvc{{ end }}{{.COMPRESS_EXT}}'
         }
     status:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
