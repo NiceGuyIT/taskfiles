@@ -4,65 +4,58 @@ version: "3"
 tasks:
 
   download:
-    # Do not use internal until the corresponding github-get-attribute task is marked internal.
+    # Do not use internal until the corresponding github:get-attribute task is marked internal.
     # internal: true
     desc: Download a release from GitHub
     vars:
       # Order matters!
       REPO: '{{.REPO | default (print .OWNER "/" .NAME) }}'
       FILE_NAME: '{{.FILE_NAME | default (print .NAME exeExt) }}'
-      ARCH: '{{ if .ARCH}}{{.ARCH}}{{ else }}{{ARCH}}{{ end }}'
-      BIN_NAME: '{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}'
-      REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
-      # Go templates {{ and }} have to be quoted in yaml, forcing the value to be interpreted as a string.
-      ASSET_DIR: '{{ if eq .ASSET_DIR "true" }}true{{ end }}'
       # Some packages use x86_64 instead of amd64
+      ARCH: '{{ if .ARCH}}{{.ARCH}}{{ else }}{{ARCH}}{{ end }}'
+      BIN_NAME: '{{osClean (print .BIN_DIR "/" .FILE_NAME) }}'
+      REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
+      ASSET_DIR: '{{ if eq .ASSET_DIR "true" }}true{{ end }}'
+      TMP_FILE:
+        sh: |
+          coreutils mktemp
+      GITHUB_API_FILE:
+        # GITHUB_API_FILE is used as a cache to reduce or prevent rate limiting against the GitHub API.
+        sh: |
+          xh --follow GET {{ squote .REPO_URL }} | coreutils base64 > {{ squote .TMP_FILE }}
+          echo {{ squote .TMP_FILE }}
       DOWNLOAD_URL:
         sh: |
-          task --silent github:get-attribute "ATTRIBUTE='browser_download_url'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
+          task --silent github:get-attribute \
+            ATTRIBUTE='browser_download_url' \
+            ASSET_PATTERN={{ squote .ASSET_PATTERN}} \
+            GITHUB_API_FILE={{ squote .GITHUB_API_FILE }}
       PACKAGE_NAME:
         sh: |
-          task --silent github:get-attribute "ATTRIBUTE='name'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
-      # TAG_NAME is the version. Currently not used.
+          task --silent github:get-attribute \
+            ATTRIBUTE='name' \
+            ASSET_PATTERN={{ squote .ASSET_PATTERN}} \
+            GITHUB_API_FILE={{ squote .GITHUB_API_FILE }}
       TAG_NAME:
+        # TAG_NAME is the version. Currently not used.
         sh: |
-          task --silent github:get-attribute "ATTRIBUTE='tag_name'" "REPO_URL='{{.REPO_URL}}'" "ASSET_PATTERN='{{.ASSET_PATTERN}}'"
+          task --silent github:get-attribute \
+            ATTRIBUTE='tag_name' \
+            ASSET_PATTERN={{ squote .ASSET_PATTERN}} \
+            GITHUB_API_FILE={{ squote .GITHUB_API_FILE }}
       COMPRESS_EXT: '{{.COMPRESS_EXT | default "" }}'
       PACKAGE_DIR: '{{.PACKAGE_DIR | default (trimSuffix .COMPRESS_EXT .PACKAGE_NAME) }}'
     preconditions:
-      - task: :init:all
-      - sh: '[ {{ quote NAME }} != "" ]'
-        msg: '.NAME is not defined'
-      - sh: '[ {{ quote OWNER }} != "" ]'
-        msg: '.OWNER is not defined'
-      - sh: '[ {{ quote ASSET_PATTERN }} != "" ]'
-        msg: '.ASSET_PATTERN is not defined'
-      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
+      - sh: '[ ! -z {{ quote .NAME }} ]'
         msg: |
-          curl is required to download files. Please install 'curl' and try again.
-      - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
+          NAME {{ quote .NAME }} is not defined.
+      - sh: '[ ! -z {{ quote .OWNER }} ]'
         msg: |
-          tar is required to extract files from archives. Please install 'tar' and try again.
-      - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
+          OWNER {{ quote .OWNER }} is not defined.
+      - sh: '[ ! -z {{ quote .ASSET_PATTERN }} ]'
         msg: |
-          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
-      - sh: '{{ if ne OS "windows"}}command -v unzip{{ end }}'
-        msg: |
-          unzip is required to uncompress files. Please install 'unzip'/'zip' and try again.
+          ASSET_PATTERN {{ quote .ASSET_PATTERN }} is not defined.
     cmds:
-      # Use this for debugging
-      # - cmd: 'echo "NAME: {{.NAME}}"'
-      # - cmd: 'echo "OWNER: {{.OWNER}}"'
-      # - cmd: 'echo "REPO: {{.REPO}}"'
-      # - cmd: 'echo "ARCH: {{.ARCH}}"'
-      # - cmd: 'echo "ASSET_PATTERN: {{.ASSET_PATTERN}}"'
-      # - cmd: 'echo "REPO_URL: {{.REPO_URL}}"'
-      # - cmd: 'echo "ASSET_DIR: {{.ASSET_DIR}}"'
-      # - cmd: 'echo "ASSET_DIR boolean: {{ if .ASSET_DIR }}true{{ else }}false{{ end }}"'
-      # - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
-      # - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
-      # - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
-      # - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
       - task: download-asset
         vars: {
           COMPRESS_EXT: '{{.COMPRESS_EXT}}',
@@ -74,31 +67,45 @@ tasks:
           BIN_NAME: '{{.BIN_NAME}}',
           BIN_DIR: '{{.BIN_DIR}}',
         }
+      - defer: |
+          coreutils rm {{ squote .TMP_FILE }}
     status:
-      - "'{{.BIN_NAME}}' --version"
+      - "{{ squote .BIN_NAME }} --version"
 
   download-asset:
     desc: Download an asset from GitHub
+    vars:
+      TMP_DIR:
+        sh: |
+          coreutils mktemp --directory
     preconditions:
-      - task: :init:all
-      - sh: '[ {{ quote PACKAGE_NAME }} != "" ]'
-        msg: '.PACKAGE_NAME is not defined'
-      - sh: '[ {{ quote PACKAGE_DIR }} != "" ]'
-        msg: '.PACKAGE_DIR is not defined'
-      - sh: '[ {{ quote DOWNLOAD_URL }} != "" ]'
-        msg: '.DOWNLOAD_URL is not defined'
-      - sh: '[ {{ quote FILE_NAME }} != "" ]'
-        msg: '.FILE_NAME is not defined'
-      - sh: '[ {{ quote BIN_NAME }} != "" ]'
-        msg: '.BIN_NAME is not defined'
-      - sh: 'test -d {{ quote BIN_DIR }}'
-        msg: '{{.BIN_DIR}} does not exist'
-      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
+      - sh: '[ ! -z {{ quote .PACKAGE_NAME }} ]'
         msg: |
-          curl is required to download files. Please install 'curl' and try again.
+          PACKAGE_NAME {{ quote .PACKAGE_NAME }} is not defined.
+      - sh: '[ ! -z {{ quote .PACKAGE_DIR }} ]'
+        msg: |
+          PACKAGE_DIR {{ quote .PACKAGE_DIR }} is not defined.
+      - sh: '[ ! -z {{ quote .DOWNLOAD_URL }} ]'
+        msg: |
+          DOWNLOAD_URL {{ quote .DOWNLOAD_URL }} is not defined.
+      - sh: '[ ! -z {{ quote .FILE_NAME }} ]'
+        msg: |
+          FILE_NAME {{ quote .FILE_NAME }} is not defined.
+      - sh: '[ ! -z {{ quote .BIN_NAME }} ]'
+        msg: |
+          BIN_NAME {{ quote .BIN_NAME }} is not defined.
+      - sh: 'test -d {{ quote .BIN_DIR }}'
+        msg: |
+          BIN_DIR {{ quote .BIN_DIR }} does not exist.
+      - sh: 'command -v xh'
+        msg: |
+          xh is required to download files. Did you run 'task init:all'?
+      - sh: 'command -v coreutils'
+        msg: |
+          coreutils is required for basic utils. Did you run 'task init:all'?
       - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
         msg: |
-          tar is required to extract files from archives. Please 'install' tar and try again.
+          tar is required to extract files from archives. Please install 'tar' and try again.
       - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
         msg: |
           gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
@@ -106,47 +113,33 @@ tasks:
         msg: |
           unzip is required to uncompress files. Please install 'unzip'/'zip' and try again.
     cmds:
-      # Use this for debugging
-      - cmd: 'echo "COMPRESS_EXT: {{.COMPRESS_EXT}}"'
-      - cmd: 'echo "PACKAGE_NAME: {{.PACKAGE_NAME}}"'
-      - cmd: 'echo "PACKAGE_DIR: {{.PACKAGE_DIR}}"'
-      - cmd: 'echo "ASSET_DIR: {{.ASSET_DIR}}"'
-      - cmd: 'echo "DOWNLOAD_URL: {{.DOWNLOAD_URL}}"'
-      - cmd: 'echo "FILE_NAME: {{.FILE_NAME}}"'
-      - cmd: 'echo "BIN_NAME: {{.BIN_NAME}}"'
-      - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
-      - cmd: 'echo "ASSET_DIR boolean: {{ if .ASSET_DIR }}true{{ else }}false{{ end }}"'
-      - cmd: |
-          powershell -Command '
-            $tmp_file = New-TemporaryFile
-            Remove-Item -Path $tmp_file
-            $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
-            $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.BASE_NAME}}{{.COMPRESS_EXT}}"
-            $ProgressPreference = "SilentlyContinue"
-            Invoke-WebRequest -URI {{ quote REPO_URL }} -OutFile $zip_file
-            Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-            Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath {{ quote NAME }}) -Destination {{.BIN_DIR}}
-            Remove-Item -Path $tmp_dir -Recurse
-          '
-        platforms: [windows]
       - cmd: |
           {{ if eq .COMPRESS_EXT ".zip" }}
-            tmp_dir=$(mktemp --directory)
-            xh --body --follow --output "$tmp_dir{{fromSlash "/"}}{{.PACKAGE_NAME}}" '{{.DOWNLOAD_URL}}'
-            unzip -p "$tmp_dir{{fromSlash "/"}}{{.PACKAGE_NAME}}" '{{ if .ASSET_DIR -}}{{.PACKAGE_DIR}}/{{ end }}{{.FILE_NAME}}' > {{.BIN_NAME}}
-            rm -r "$tmp_dir"
+            xh --body --follow --output "{{ osClean (print .TMP_DIR "/" .PACKAGE_NAME) }}" {{ squote .DOWNLOAD_URL }}
+            {{ if eq OS "windows" }}
+              powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
+                $ProgressPreference = "SilentlyContinue"
+                Expand-Archive -Path "{{ osClean (print .TMP_DIR "/" .PACKAGE_NAME) }}" -DestinationPath "{{ osClean .TMP_DIR }}"
+              '
+              coreutils cp "{{.TMP_DIR}}{{ if .ASSET_DIR -}}\{{.PACKAGE_DIR}}{{ end }}\{{.FILE_NAME}}" "{{ osClean .BIN_NAME }}"
+            {{ else }}
+              unzip -p "{{ osClean (print .TMP_DIR "/" .PACKAGE_NAME) }}" '{{ if .ASSET_DIR -}}{{.PACKAGE_DIR}}/{{ end }}{{.FILE_NAME}}' > "{{ osClean .BIN_NAME }}"
+            {{ end }}
           {{ else if eq .COMPRESS_EXT ".tar.gz" }}
-            xh --body --follow --stream '{{.DOWNLOAD_URL}}' |
+            xh --body --follow --stream {{ squote .DOWNLOAD_URL }} |
             {{ if .ASSET_DIR -}}
-              tar --directory '{{.BIN_DIR}}' -zxf - --strip-components 1 '{{.PACKAGE_DIR}}/{{.FILE_NAME}}'
+              tar --directory {{ squote .BIN_DIR }} -zxf - --strip-components 1 {{ toSlash (print .PACKAGE_DIR "/" .FILE_NAME) }}
             {{- else -}}
-              tar --directory '{{.BIN_DIR}}' -zxf - '{{.FILE_NAME}}'
+              tar --directory {{ squote .BIN_DIR }} -zxf - {{ squote .FILE_NAME }}
             {{- end -}}
           {{ else }}
-            xh --body --download --follow --output '{{.BIN_NAME}}' '{{.DOWNLOAD_URL}}'
+            xh --body --download --follow --output {{ squote .BIN_NAME }} {{ squote .DOWNLOAD_URL }}
           {{ end }}
-          chmod a+x '{{.BIN_NAME}}'
-        platforms: [linux, darwin]
+          {{ if ne OS "windows" }}
+            coreutils chmod a+x {{ squote .BIN_NAME }}
+          {{ end }}
+      - defer: |
+          coreutils rm -r "{{ osClean .TMP_DIR }}"
 
 
   get-attribute:
@@ -154,27 +147,42 @@ tasks:
     # to assign a variable from a task. As of v3.21.0, a variable cannot be assigned from a task, only the shell output.
     # https://github.com/go-task/task/issues/178
     # internal: true
-    desc: Get an attribute using the GitHub API. Internal only.
+    desc: Get an attribute using the GitHub API. Internal only
+    summary: |
+      This task will get an attribute from the GitHub API. This is meant to be called from other tasks, not run
+      manually.
+
+      Important: It's possible to hit GitHub's API rate limit for anonymous users.
+      https://docs.github.com/en/rest/overview/resources-in-the-rest-api?apiVersion=2022-11-28#rate-limit-headers
     preconditions:
-      - sh: '[ {{ quote REPO_URL }} != "" ]'
-      - sh: '[ {{ quote ASSET_PATTERN }} != "" ]'
-      - sh: '[ {{ quote ATTRIBUTE }} != "" ]'
-      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
-      - sh: '{{ if ne OS "windows"}}command -v yq{{ end }}'
+      - sh: '[ ! -z {{ squote .ASSET_PATTERN }} ]'
+        msg: |
+          ASSET_PATTERN {{ quote .ASSET_PATTERN }} is not defined.
+      - sh: '[ ! -z {{ squote .ATTRIBUTE }} ]'
+        msg: |
+          ATTRIBUTE {{ quote .ATTRIBUTE }} is not defined.
+      - sh: '[ ! -z {{ squote .GITHUB_API_FILE }} ]'
+        msg: |
+          GITHUB_API_FILE {{ quote .GITHUB_API_FILE }} is not defined.
+      - sh: 'command -v yq'
+        msg: |
+          yq is required to parse JSON files. Did you run 'task init:all'?
+      - sh: 'command -v xh'
+        msg: |
+          xh is required to download files. Did you run 'task init:all'?
+      - sh: 'command -v coreutils'
+        msg: |
+          coreutils is required for basic utils. Did you run 'task init:all'?
     cmds:
       - cmd: |
-          powershell -Command 'Write-Output "FIXME: Not implemented"'
-        platforms: [windows]
-      - cmd: |
           declare -a asset=($(
-            curl --silent --location --output - '{{.REPO_URL}}' |
-            yq --unwrapScalar '.assets[] | select(.name=={{ quote ASSET_PATTERN }}) | .{{.ATTRIBUTE}}'
+            coreutils base64 --decode < {{ squote .GITHUB_API_FILE }} |
+            yq --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .{{.ATTRIBUTE}}'
           ))
           if [[ ${#asset[@]} -ne 1 ]]; then
             echo 'ASSET_PATTERN did not match exactly 1 asset. Please check the ASSET_PATTERN for correctness.'
-            echo 'ASSET_PATTERN: {{.ASSET_PATTERN}}'
+            echo 'ASSET_PATTERN: {{ quote .ASSET_PATTERN }}'
             exit 1
           else
             echo ${asset[@]}
           fi
-        platforms: [linux, darwin]

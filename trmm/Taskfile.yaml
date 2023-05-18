@@ -24,11 +24,11 @@ tasks:
           task --silent trmm:config-get-tactical-user
       COMMUNITY_PATH: '{{.COMMUNITY_PATH | default .TRMM_DEFAULT_COMMUNITY_PATH }}'
     preconditions:
-      - task: :install:yq
+      - task: :init:dl-yq
       - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
         msg: |
           git is required to clone and work with repos. Please install 'git' and try again.
-      - sh: '[ {{ quote .COMMUNITY_PATH }} != "" ]'
+      - sh: '[ ! -z {{ quote .COMMUNITY_PATH }} ]'
         msg: |
           COMMUNITY_PATH {{ quote .COMMUNITY_PATH }} is not defined. Please set it to the community scripts directory.
       - sh: '[ ! -z {{ squote .TRMM_USER }} ]'
@@ -56,11 +56,11 @@ tasks:
           task --silent trmm:config-get-tactical-user
       COMMUNITY_PATH: '{{.COMMUNITY_PATH | default .TRMM_DEFAULT_COMMUNITY_PATH }}'
     preconditions:
-      - task: :install:yq
+      - task: :init:dl-yq
       - sh: '{{ if ne OS "windows"}}command -v git{{ end }}'
         msg: |
           git is required to clone and work with repos. Please install 'git' and try again.
-      - sh: '[ {{ quote COMMUNITY_PATH }} != "" ]'
+      - sh: '[ ! -z {{ quote COMMUNITY_PATH }} ]'
         msg: |
           COMMUNITY_PATH is not defined. Please set it to the community scripts directory.
       - sh: '[ ! -z {{ squote .TRMM_USER }} ]'
@@ -93,7 +93,7 @@ tasks:
       CONFIG_KEY: '{{.CONFIG_KEY}}'
       JSON_EXP: '{{.JSON_EXP}}'
     preconditions:
-      - task: :install:yq
+      - task: :init:dl-yq
       - sh: '{{ if ne OS "windows"}}command -v python3{{ end }}'
         msg: |
           python3 is required to parse the local config file. Is this a TRMM instance?
