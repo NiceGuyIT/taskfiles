@@ -10,8 +10,9 @@ These are the list of packages that can be installed.
 - [age-keygen][]
 - [alacritty][] - Windows may require [Universal CRT][] installed
 - [atuin][]
-- [docker compose][] (Linux only)
 - [cfssl-certinfo][]
+- [docker compose][] (Linux only)
+- [doggo][]
 - [fzf][]
 - [fd][]
 - [lego][]
@@ -25,8 +26,9 @@ These are the list of packages that can be installed.
 [alacritty]: https://github.com/alacritty/alacritty
 [atuin]: https://github.com/ellie/atuin
 [coreutils]: https://github.com/uutils/coreutils
-[docker compose]: https://docs.docker.com/compose/install/
 [cfssl]: https://github.com/cloudflare/cfssl
+[docker compose]: https://docs.docker.com/compose/install/
+[doggo]: https://github.com/mr-karan/doggo
 [fd]: https://github.com/sharkdp/fd
 [fzf]: https://github.com/junegunn/fzf
 [lego]: https://github.com/go-acme/lego
@@ -46,9 +48,11 @@ These are the list of packages that can be installed.
 - [Command line utilities][]
 - [curated list of command-line utilities written in Rust][]
 - [Awesome Alternatives in Rust][]
+- [Modern Unix][]
 
 [Webi]: https://webinstall.dev/
 [Rust command line utilities]: https://github.com/sts10/rust-command-line-utilities
 [Command line utilities]: https://lib.rs/command-line-utilities
 [curated list of command-line utilities written in Rust]: https://github.com/sts10/rust-command-line-utilities
 [Awesome Alternatives in Rust]: https://github.com/TaKO8Ki/awesome-alternatives-in-rust
+[Modern Unix]: https://github.com/ibraheemdev/modern-unix
