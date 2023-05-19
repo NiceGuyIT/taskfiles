@@ -319,7 +319,7 @@ tasks:
           ARCH: '{{.ARCH}}',
           COMPRESS_EXT: '{{.COMPRESS_EXT}}',
           ASSET_DIR: 'true',
-          ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux" }}-musl{{ end }}{{.COMPRESS_EXT}}'
+          ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux" }}-musl{{ else if eq OS "windows" }}-gnu{{ end }}{{.COMPRESS_EXT}}'
         }
     status:
       # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
@@ -453,6 +453,14 @@ tasks:
           COMPRESS_EXT: '{{.COMPRESS_EXT}}',
           ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ end }}{{.COMPRESS_EXT}}'
         }
+        platforms: [linux, darwin]
+      - cmd: |
+          task --silent github:download \
+            NAME={{ squote .NAME }} \
+            OWNER={{ squote .OWNER }} \
+            ARCH={{ squote .ARCH }} \
+            COMPRESS_EXT={{ squote .COMPRESS_EXT }} \
+            ASSET_PATTERN='{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ end }}{{.COMPRESS_EXT}}'
         platforms: [linux, darwin]
       - cmd: |
           echo "Windows is not supported"

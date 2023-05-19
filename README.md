@@ -1,4 +1,6 @@
-ask files for use with [task][]. There's a repo that has [advanced examples][].
+# Taskfiles
+
+A collection of task files for use with [task][]. There's a repo that has [advanced examples][].
 
 [task]: https://github.com/go-task/task
 

@@ -8,7 +8,7 @@ These are the list of packages that can be installed.
 - [coreutils][] - Part of the core install
 - [age][]
 - [age-keygen][]
-- [alacritty][] - Windows may require [Universal CRT][] installed
+- [alacritty][] - Requires [Microsoft Visual C++ Redistributable][] installed: `choco install vcredist140`
 - [atuin][]
 - [cfssl-certinfo][]
 - [docker compose][] (Linux only)
@@ -37,9 +37,9 @@ These are the list of packages that can be installed.
 [sops]: https://github.com/mozilla/sops
 [starship]: https://github.com/starship/starship
 [task]: https://github.com/go-task/task
-[Universal CRT]: https://github.com/MicrosoftDocs/cpp-docs/blob/main/docs/windows/universal-crt-deployment.md
 [xh]: https://github.com/ducaale/xh
 [yq]: https://github.com/mikefarah/yq
+[Microsoft Visual C++ Redistributable]: https://learn.microsoft.com/en-US/cpp/windows/latest-supported-vc-redist?view=msvc-170
 
 ## Other Package Managers
 
