@@ -51,7 +51,7 @@ tasks:
 
   dl-yq:
     # https://github.com/mikefarah/yq
-    desc: Download 'yq' into the bin directory
+    desc: Download 'yq', a portable command-line YAML, JSON, XML, CSV, TOML and properties processor
     deps:
       - create-bin-dir
     vars:
@@ -74,8 +74,8 @@ tasks:
       - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
 
   dl-task:
-    # https://github.com/go-task/task/
-    desc: Download 'task' into the bin directory
+    # https://github.com/go-task/task
+    desc: Download 'task', a task runner / simpler Make alternative written in Go
     deps:
       - create-bin-dir
     vars:
@@ -122,7 +122,7 @@ tasks:
 
   dl-xh:
     # https://github.com/ducaale/xh
-    desc: Download 'xh' into the bin directory
+    desc: Download 'xh', friendly and fast tool for sending HTTP requests
     deps:
       - create-bin-dir
       - dl-yq
