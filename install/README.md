@@ -44,14 +44,12 @@ These are the list of packages that can be installed.
 ## Other Package Managers
 
 - [Webi][]
-- [Rust command line utilities][]
 - [Command line utilities][]
 - [curated list of command-line utilities written in Rust][]
 - [Awesome Alternatives in Rust][]
 - [Modern Unix][]
 
 [Webi]: https://webinstall.dev/
-[Rust command line utilities]: https://github.com/sts10/rust-command-line-utilities
 [Command line utilities]: https://lib.rs/command-line-utilities
 [curated list of command-line utilities written in Rust]: https://github.com/sts10/rust-command-line-utilities
 [Awesome Alternatives in Rust]: https://github.com/TaKO8Ki/awesome-alternatives-in-rust

@@ -335,7 +335,7 @@ tasks:
       OWNER: junegunn
       # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
       ARCH: '{{.ARCH | default ARCH}}'
-      COMPRESS_EXT: '.zip'
+      COMPRESS_EXT: '{{ if or (eq OS "windows") (eq OS "darwin") }}.zip{{ else }}.tar.gz{{ end }}'
       SEMVER_REGEX: 'v?[0-9]+\.([0-9]+\.?){1,}'
     cmds:
       - task: :github:download
