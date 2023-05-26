@@ -333,7 +333,7 @@ tasks:
       - cmd: |
           # Extract a sane filename
           filename=$(echo {{ squote .BASE64_JSON }} | coreutils base64 --decode - | yq --output-format=json --unwrapScalar ".name" |
-            tr --complement --delete '\11\12\15\40-\176' | tr ' ' '_')
+            coreutils tr --complement --delete '\11\12\15\40-\176' | tr ' ' '_')
           filename=${filename##_}
           filename=${filename%%_}
           case $(echo {{ squote .BASE64_JSON }} | coreutils base64 --decode - | yq --output-format=json --unwrapScalar ".shell") in
@@ -352,13 +352,13 @@ tasks:
           esac
           echo "Filename: $filename"
           # Save the script
-          coreutils cat << EOT
+          coreutils cat << EOT |
           {{.BASE64_JSON}}
           EOT
             coreutils base64 --decode - |
             yq --output-format=json --unwrapScalar '.script_body' > {{ squote .MY_SCRIPTS_DIR }}/"${filename}"
           # Convert the JSON to "import" format
-          coreutils cat << EOT
+          coreutils cat << EOT |
           {{.BASE64_JSON}}
           EOT
             coreutils base64 --decode - |
