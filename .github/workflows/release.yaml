@@ -3,8 +3,6 @@ name: Create release
 
 on:
   push:
-    branches-ignore:
-      - 'develop'
     tags:
       - 'v*'
 
