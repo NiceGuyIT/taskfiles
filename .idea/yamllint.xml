@@ -2,7 +2,7 @@
 <project version="4">
   <component name="YamllintSettings">
     <enabled>true</enabled>
-    <binPath>C:\Users\dev\AppData\Roaming\Python\Python38\Scripts\yamllint.exe</binPath>
+    <binPath>$USER_HOME$/.local/bin/yamllint</binPath>
     <disabledRules>
       <set>
         <option value="line-length" />
