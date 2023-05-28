@@ -10,6 +10,8 @@ tasks:
         msg: |
           curl is required to download files. Please install 'curl' and try again.
     cmds:
+      # - cmd: |
+      #     echo 'BIN_DIR: {{.BIN_DIR}}'
       - task: create-bin-dir
         vars: {
           BIN_DIR: '{{.BIN_DIR}}'
@@ -32,18 +34,20 @@ tasks:
         msg: '.BIN_DIR is not defined'
     cmds:
       - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
+      - cmd: 'echo "BIN_DIR_ADMIN: {{.BIN_DIR_ADMIN}}"'
       - cmd: |
           mkdir --parents {{ osClean .BIN_DIR }}
         platforms: [linux, darwin]
         # FIXME: Check if BIN_DIR is already in the path for the user
       - cmd: |
           powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
-            if (-not (Test-Path -Path {{ squote .BIN_DIR }})) {
-              New-Item -Path {{ squote .BIN_DIR }} -ItemType Directory
+            if (-not (Test-Path -Path "{{ osClean .BIN_DIR }}")) {
+              New-Item -Path "{{ osClean .BIN_DIR }}" -ItemType Directory
             }
-            $value = Get-ItemProperty -Path HKCU:\Environment -Name Path
-            $newpath = $value.Path += "{{ (print ";" .BIN_DIR) }}"
-            Set-ItemProperty -Path HKCU:\Environment -Name Path -Value $newpath
+            # Disable this until checks are in place if the path already exists in ENV
+            #$value = Get-ItemProperty -Path HKCU:\Environment -Name Path
+            #$newpath = $value.Path += "{{ (print ";" .BIN_DIR) }}"
+            #Set-ItemProperty -Path HKCU:\Environment -Name Path -Value $newpath
           '
         platforms: [windows]
     status:
