@@ -1,0 +1,7 @@
+# Exclude the following files/directories from the release archive.
+# Note: The directories are listed to prevent empty directories from being included.
+.github		export-ignore
+.github/**	export-ignore
+.gitignore	export-ignore
+.idea		export-ignore
+.idea/**	export-ignore

@@ -9,13 +9,13 @@ env:
     sh: |
       if [ -z $TASKFILE_BIN_DIR ]; then
         {{ if eq OS "windows" -}}
-            if net session >/dev/null 2>&1; then
-                echo '{{.ProgramData}}\taskfiles\bin'
-            else
-                echo '{{.USERPROFILE}}\bin'
-            fi
+          if net session >/dev/null 2>&1; then
+            echo '{{ osClean (print .ProgramData "/taskfiles/bin") }}'
+          else
+            echo '{{ osClean (print .USERPROFILE "/bin") }}'
+          fi
         {{- else -}}
-            echo '{{ if eq .USER "root" }}/usr/local/bin{{ else }}{{ .HOME }}/bin{{ end }}'
+          echo '{{ if eq .USER "root" }}/usr/local/bin{{ else }}{{ .HOME }}/bin{{ end }}'
         {{- end }}
       else
         echo $TASKFILE_BIN_DIR
