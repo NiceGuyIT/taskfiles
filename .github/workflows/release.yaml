@@ -18,6 +18,12 @@ jobs:
       # actions: write
     steps:
 
+      - name: Use context variables
+        run: |
+          echo "$EVENT_CONTEXT"
+        env:
+          EVENT_CONTEXT: ${{ toJson(github.event) }}
+
       - name: Create tar.gz archive
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,9 +60,3 @@ jobs:
               --title="${GITHUB_REPOSITORY#*/} ${tag#v}" \
               --generate-notes
               /tmp/${REPO_NAME}-${GITHUB_REF_NAME}.*
-
-      - name: Use context variables
-        run: |
-          echo "$EVENT_CONTEXT"
-        env:
-          EVENT_CONTEXT: ${{ toJson(github.event) }}
