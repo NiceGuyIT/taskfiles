@@ -1,0 +1,84 @@
+---
+version: "3"
+
+vars:
+  SOFTWARE_LIST: |
+    age
+    age-keygen
+    alacritty
+    atuin
+    cfssl-certinfo
+    fd
+    fzf
+    lego
+    ouch
+    rclone
+    ripgrep
+    sops
+    starship
+
+tasks:
+
+  general:
+    vars:
+      FILE: 'install/packages/cfssl-certinfo.yaml'
+      NAME: 'cfssl-certinfo'
+      PKG_PROVIDER:
+        sh: |
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider' {{.FILE}}
+      PKG_REPO:
+        sh: |
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo' {{.FILE}}
+      PKG_OWNER:
+        sh: |
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner' {{.FILE}}
+      PKG_ARCH:
+        sh: |
+          #arch=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.arch.[].{{ARCH}}' {{.FILE}})
+          arch=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.arch.[].{{ARCH}}' {{.FILE}})
+          echo $arch
+          #if [ $arch == 'null' ]; then echo ""; else echo $arch; fi
+      PKG_ASSET_PATTERN:
+        sh: |
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.asset_pattern' {{.FILE}}
+      PKG_SEMVER_REGEX:
+        sh: |
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.semver_regex' {{.FILE}}
+      #GITHUB_API_FILE:
+      #  # GITHUB_API_FILE is used as a cache to reduce or prevent rate limiting against the GitHub API.
+      #  sh: |
+      #    xh --follow GET {{ squote .REPO_URL }} | coreutils base64 > {{ squote .TMP_FILE }}
+      #    echo {{ squote .TMP_FILE }}
+    cmds:
+      - |
+        echo 'NAME: {{.NAME}}'
+        echo 'PKG_PROVIDER: {{.PKG_PROVIDER}}'
+        echo 'PKG_REPO: {{.PKG_REPO}}'
+        echo 'PKG_OWNER: {{.PKG_OWNER}}'
+        echo 'PKG_ARCH: {{.PKG_ARCH}}'
+        echo 'PKG_ASSET_PATTERN: {{.PKG_ASSET_PATTERN}}'
+        echo 'PKG_SEMVER_REGEX: {{.PKG_SEMVER_REGEX}}'
+
+  cfssl-certinfo:
+    # https://github.com/cloudflare/cfssl
+    desc: Install 'cfssl-certinfo' to query certificates
+    vars:
+      NAME: cfssl-certinfo
+      OWNER: cloudflare
+      # .ARCH needs to be defined here because ASSET_PATTERN is evaluated before calling the task.
+      ARCH: '{{if eq ARCH "arm64"}}amd64{{else}}{{ARCH}}{{end}}'
+      SEMVER_REGEX: ''
+    cmds:
+      - task: :github:download
+        vars: {
+          NAME: '{{.NAME}}',
+          OWNER: '{{.OWNER}}',
+          REPO: 'cloudflare/cfssl',
+          ARCH: '{{.ARCH}}',
+          ASSET_PATTERN: '{{.NAME}}_*_{{OS}}_{{.ARCH}}{{exeExt}}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'

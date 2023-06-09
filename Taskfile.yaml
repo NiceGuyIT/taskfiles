@@ -31,6 +31,9 @@ includes:
   install:
     taskfile: install/Taskfile.yaml
     optional: true
+  dl:
+    taskfile: install/Install.yaml
+    optional: true
   github:
     taskfile: github/Taskfile.yaml
     optional: true
