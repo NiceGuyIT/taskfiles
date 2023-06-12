@@ -30,6 +30,10 @@
           "description": "Description of the package",
           "type": "string"
         },
+        "notice": {
+          "description": "Notice of special handling for the package, indicating it cannot be installed directly",
+          "type": "string"
+        },
         "provider": {
           "description": "Package provider. Only github is supported",
           "type": "string"

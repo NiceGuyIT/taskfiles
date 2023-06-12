@@ -28,14 +28,11 @@ includes:
   init:
     taskfile: init/Taskfile.yaml
     optional: true
-  install:
-    taskfile: install/Taskfile.yaml
-    optional: true
-  dl:
-    taskfile: install/Install.yaml
+  package:
+    taskfile: package/Taskfile.yaml
     optional: true
   github:
-    taskfile: github/Taskfile.yaml
+    taskfile: package/GitHub.yaml
     optional: true
   json:
     taskfile: json/Taskfile.yaml

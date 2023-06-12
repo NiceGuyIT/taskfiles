@@ -22,12 +22,19 @@ packages:
     # If the Go OS is not listed (matched), it's assumed to be same as Go's OS.
     os:
       darwin: macos
+    # Use this to specify non-default binary locations and filenames.
+    bin:
+      # Specify a different bin directory.
+      dir: /usr/local/bin/
+      # Specify a different bin filename.
+      file: example
     # asset vars relate to the file that is going to be downloaded.
     asset:
       # asset_pattern is the bash pattern to match the asset. Task doesn't support 'eval' for it to be a Task pattern.
       # TODO: gomplate, just or similar may be used in the future.
       # Possible variables:
-      #   name (PKG_REPO_NAME)
+      #   name (NAME)
+      #   repo_name (PKG_REPO_NAME)
       #   os (PKG_OS)
       #   arch (PKG_ARCH)
       #   exe_ext (exeExt: .exe if on Windows)
@@ -38,7 +45,7 @@ packages:
       # Are the files compressed in a directory matching the asset name?
       dir: true
       # If the compress directory does not match the asset name, what is the name of the directory?
-      # TODO: 'ouch' uses Smart
+      # TODO: 'ouch' uses Smart Unpack. Is this needed?
       dir_name: '${asset_name}'
       # compress_ext translates the OS to the compression extension.
       ext:
@@ -55,7 +62,7 @@ packages:
     # status contains information to get the package status.
     status:
       # command to run to check of the package is installed. Usually this is the command used to get the version.
-      command: age-keygen --version
+      command: example --version
 
   age:
     link: https://github.com/FiloSottile/age
@@ -71,7 +78,7 @@ packages:
         windows: .zip
         default: .tar.gz
     asset:
-      pattern: '${name}-*-${os}-${arch}${archive_ext}'
+      pattern: '${repo_name}-*-${os}-${arch}${archive_ext}'
     status:
       command: age --version
 
@@ -90,7 +97,7 @@ packages:
         windows: .zip
         default: .tar.gz
     asset:
-      pattern: '${name}-*-${os}-${arch}${archive_ext}'
+      pattern: '${repo_name}-*-${os}-${arch}${archive_ext}'
     status:
       command: age-keygen --version
 
@@ -121,13 +128,14 @@ packages:
     os:
       linux: linux-musl
     asset:
-      pattern: '${name}-*-${arch}-*-${os}${archive_ext}'
+      pattern: '${repo_name}-*-${arch}-*-${os}${archive_ext}'
     status:
       command: atuin --version
 
   cfssl-certinfo:
     link: https://github.com/cloudflare/cfssl
     description: Cloudflare's tool to query certificates from files or domains (servers).
+    notice: This package cannot be installed directly. Use 'install:docker-compose' instead.
     provider: github
     github:
       owner: cloudflare
@@ -135,9 +143,24 @@ packages:
     arch:
       arm64: amd64
     asset:
-      pattern: '${name}_*_${os}_${arch}${exe_ext}'
+      pattern: '${repo_name}_*_${os}_${arch}${exe_ext}'
     status:
       command: cfssl-certinfo --help
+
+  docker-compose:
+    link: https://github.com/docker/compose
+    description: Install "docker compose" v2 instead of "docker-compose" v1. Linux only
+    provider: github
+    github:
+      owner: docker
+      repo: compose
+    arch:
+      amd64: x86_64
+      arm64: aarch64
+    asset:
+      pattern: '${name}-${os}-${arch}${exe_ext}'
+    status:
+      command: docker compose version
 
   doggo:
     link: https://github.com/mr-karan/doggo
@@ -147,7 +170,7 @@ packages:
       owner: mr-karan
       repo: doggo
     asset:
-      pattern: '${name}_*_${os}_${arch}${archive_ext}'
+      pattern: '${repo_name}_*_${os}_${arch}${archive_ext}'
     archive:
       dir: true
       file_name: doggo
@@ -171,7 +194,7 @@ packages:
       linux: linux-musl
       windows: windows-gnu
     asset:
-      pattern: '${name}-*-${arch}-*-${os}${archive_ext}'
+      pattern: '${repo_name}-*-${arch}-*-${os}${archive_ext}'
     archive:
       dir: true
       ext:
@@ -188,7 +211,7 @@ packages:
       owner: junegunn
       repo: fzf
     asset:
-      pattern: '${name}-*-${os}_${arch}${archive_ext}'
+      pattern: '${repo_name}-*-${os}_${arch}${archive_ext}'
     archive:
       dir: false
       ext:
@@ -206,7 +229,7 @@ packages:
       owner: go-acme
       repo: lego
     asset:
-      pattern: '${name}_*_${os}_${arch}${archive_ext}'
+      pattern: '${repo_name}_*_${os}_${arch}${archive_ext}'
     archive:
       dir: true
       ext:
@@ -234,7 +257,7 @@ packages:
       # micro-2.0.11-osx.tar.gz
       # micro-2.0.11-macos-arm64.tar.gz
       # micro-2.0.11-win64.zip
-      pattern: '${name}-*-${os}${archive_ext}'
+      pattern: '${repo_name}-*-${os}${archive_ext}'
     archive:
       dir: true
       ext:
@@ -251,11 +274,14 @@ packages:
     github:
       owner: ouch-org
       repo: ouch
+    arch:
+      amd64: x86_64
+      arm64: aarch64
     os:
       linux: linux-musl
       windows: windows-gnu
     asset:
-      pattern: '${name}-${arch}-*-${os}${archive_ext}'
+      pattern: '${repo_name}-${arch}-*-${os}${archive_ext}'
     archive:
       dir: true
       ext:
@@ -277,7 +303,7 @@ packages:
     os:
       linux: linux-musl
     asset:
-      pattern: '${name}-*-${arch}-*-${os}${archive_ext}'
+      pattern: '${repo_name}-*-${arch}-*-${os}${archive_ext}'
     archive:
       dir: false
       ext:
@@ -295,7 +321,7 @@ packages:
     os:
       darwin: osx
     asset:
-      pattern: '${name}-*-${os}-${arch}${archive_ext}'
+      pattern: '${repo_name}-*-${os}-${arch}${archive_ext}'
     archive:
       dir: true
       ext:
@@ -318,7 +344,7 @@ packages:
       linux: linux-musl
       windows: windows-gnu
     asset:
-      pattern: '${name}-*-${arch}-*-${os}${archive_ext}'
+      pattern: '${repo_name}-*-${arch}-*-${os}${archive_ext}'
     archive:
       dir: true
       ext:
@@ -342,7 +368,7 @@ packages:
       linux: linux
       windows: ""
     asset:
-      pattern: '${name}-*${os}${arch}${exe_ext}'
+      pattern: '${repo_name}-*${os}${arch}${exe_ext}'
     status:
       command: sops --version
 
@@ -360,11 +386,11 @@ packages:
       linux: linux-musl
       windows: windows-msvc
     asset:
-      pattern: '${name}-${arch}-*-${os}${archive_ext}'
+      pattern: '${repo_name}-${arch}-*-${os}${archive_ext}'
     archive:
       dir: false
       ext:
         windows: .zip
         default: .tar.gz
     status:
-      command: starship --version
+      command: starship --version | coreutils head -1

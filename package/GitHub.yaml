@@ -33,57 +33,42 @@ tasks:
       TMP_DIR:
         sh: |
          coreutils mktemp --directory
-      GITHUB_API_BASE64:
+      GITHUB_API_FILE:
         sh: |
-          xh --follow GET {{ squote .REPO_URL }} | coreutils base64
+          xh --follow --body --download --output {{ squote (print .TMP_DIR "/latest.json") }} GET {{ squote .REPO_URL }}
+          echo {{ squote (print .TMP_DIR "/latest.json") }}
       DOWNLOAD_URL:
         sh: |
-          declare -a asset=($(
-            cat << EOT |
-          {{.GITHUB_API_BASE64}}
-          EOT
-            coreutils base64 --decode |
-            yq --unwrapScalar '.assets[] | select(.name=={{ quote .PKG_ASSET_PATTERN }}) | .browser_download_url'
+          declare -a url=($(
+            yq --unwrapScalar --output-format json '.assets[] | select(.name=={{ quote .PKG_ASSET_PATTERN }}) | .browser_download_url // ""' \
+              {{ squote .GITHUB_API_FILE }}
           ))
-          if [[ ${#asset[@]} -ne 1 ]]; then
+          if [[ ${#url[@]} -ne 1 ]]; then
             echo 'PKG_ASSET_PATTERN did not match exactly 1 asset. Please check the PKG_ASSET_PATTERN for correctness.'
             echo 'PKG_ASSET_PATTERN: {{ quote .PKG_ASSET_PATTERN }}'
+            echo "url: ${url}"
             exit 1
           else
-            echo ${asset[@]}
+            echo ${url[@]}
           fi
       PACKAGE_NAME:
         sh: |
-          declare -a asset=($(
-            cat << EOT |
-          {{.GITHUB_API_BASE64}}
-          EOT
-            coreutils base64 --decode |
-            yq --unwrapScalar '.assets[] | select(.name=={{ quote .PKG_ASSET_PATTERN }}) | .name'
+          declare -a asset_name=($(
+            yq --unwrapScalar --output-format json '.assets[] | select(.name=={{ quote .PKG_ASSET_PATTERN }}) | .name // ""' \
+              {{ squote .GITHUB_API_FILE }}
           ))
-          if [[ ${#asset[@]} -ne 1 ]]; then
+          if [[ ${#asset_name[@]} -ne 1 ]]; then
             echo 'PKG_ASSET_PATTERN did not match exactly 1 asset. Please check the PKG_ASSET_PATTERN for correctness.'
             echo 'PKG_ASSET_PATTERN: {{ quote .PKG_ASSET_PATTERN }}'
+            echo "asset_name: ${asset_name}"
             exit 1
           else
-            echo ${asset[@]}
+            echo ${asset_name[@]}
           fi
       TAG_NAME:
         # TAG_NAME is the version. Currently not used.
         sh: |
-          declare -a asset=($(
-            cat << EOT |
-          {{.GITHUB_API_BASE64}}
-          EOT
-            coreutils base64 --decode |
-            yq --unwrapScalar '.tag_name'
-          ))
-          if [[ ${#asset[@]} -ne 1 ]]; then
-            echo 'tag_name was not found in the JSON. Please check if this is accurate.'
-            exit 1
-          else
-            echo ${asset[@]}
-          fi
+          yq --unwrapScalar --output-format json '.tag_name // ""' {{ squote .GITHUB_API_FILE }}
       # TODO: Is this needed?
       PACKAGE_DIR: '{{.PACKAGE_DIR | default (trimSuffix .PKG_ARCHIVE_EXT .PACKAGE_NAME) }}'
     cmds:
@@ -122,8 +107,23 @@ tasks:
           {{ end }}
       - defer: |
           coreutils rm -r {{ squote .TMP_DIR }}
-    status:
-      - "{{ squote .BIN_NAME }} --version"
+
+  list-assets:
+    desc: List the assets of a package
+    preconditions:
+      - sh: '[ ! -z {{ quote .REPO_NAME }} ]'
+        msg: REPO_NAME {{ quote .REPO_NAME }} is not defined.
+      - sh: '[ ! -z {{ quote .REPO_OWNER }} ]'
+        msg: REPO_OWNER {{ quote .REPO_OWNER }} is not defined.
+    vars:
+      # Order matters!
+      REPO_NAME: '{{.REPO_NAME | default "" }}'
+      REPO_OWNER: '{{.REPO_OWNER | default "" }}'
+      REPO_URL: 'https://api.github.com/repos/{{.REPO_OWNER}}/{{.REPO_NAME}}/releases/latest'
+    cmds:
+      - cmd: |
+          xh --follow --body GET {{ squote .REPO_URL }} |
+            yq --unwrapScalar --output-format json '.assets[].name // ""'
 
   get-rate-limit:
     desc: Get the current rate limit information for the GitHub API
