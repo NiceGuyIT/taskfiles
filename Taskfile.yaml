@@ -7,15 +7,19 @@ env:
     # Otherwise, the user's bin directory is used.
     # Task treats environmental variables as case-sensitive while Windows does not.
     sh: |
-      {{- if eq OS "windows" -}}
+      if [ -z $TASKFILE_BIN_DIR ]; then
+        {{ if eq OS "windows" -}}
           if net session >/dev/null 2>&1; then
-              echo '{{.ProgramData}}\taskfiles\bin'
+            echo '{{ osClean (print .ProgramData "/taskfiles/bin") }}'
           else
-              echo '{{.USERPROFILE}}\bin'
+            echo '{{ osClean (print .USERPROFILE "/bin") }}'
           fi
-      {{- else -}}
+        {{- else -}}
           echo '{{ if eq .USER "root" }}/usr/local/bin{{ else }}{{ .HOME }}/bin{{ end }}'
-      {{- end -}}
+        {{- end }}
+      else
+        echo $TASKFILE_BIN_DIR
+      fi
 
 # Include all the tasks at the top level, so they can include tasks in other files. If the tasks are included in the
 # sub-files, the tasks are repeated in the 'task --list' output. Including all tasks at the top level prevents this
@@ -24,11 +28,11 @@ includes:
   init:
     taskfile: init/Taskfile.yaml
     optional: true
-  install:
-    taskfile: install/Taskfile.yaml
+  package:
+    taskfile: package/Taskfile.yaml
     optional: true
   github:
-    taskfile: github/Taskfile.yaml
+    taskfile: package/GitHub.yaml
     optional: true
   json:
     taskfile: json/Taskfile.yaml

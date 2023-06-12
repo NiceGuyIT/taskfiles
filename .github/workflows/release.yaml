@@ -1,0 +1,74 @@
+---
+name: Create release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Release pushed tag
+    runs-on: ubuntu-latest
+    permissions:
+      # Release updates require contents write
+      contents: write
+      # actions: write
+    steps:
+
+      # Use this for debugging
+      # - name: Use context variables
+      #   run: |
+      #     echo "$EVENT_CONTEXT"
+      #   env:
+      #     EVENT_CONTEXT: ${{ toJson(github.event) }}
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # - name: Get debug info
+      #   shell: bash
+      #   env:
+      #     REPO_NAME: ${{ github.event.repository.name }}
+      #     ARCHIVE_FORMAT: 'tar.gz'
+      #   run: |
+      #     pwd
+      #     ls -la
+      #     ls -la "${GITHUB_WORKSPACE}"
+
+      - name: Create tar.gz archive
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          ARCHIVE_FORMAT: 'tar.gz'
+        run: |
+          git archive \
+            --format ${ARCHIVE_FORMAT} \
+            --output /tmp/${REPO_NAME}-${GITHUB_REF_NAME}.${ARCHIVE_FORMAT} \
+            --prefix ${REPO_NAME}-${GITHUB_REF_NAME}/ \
+            --worktree-attributes \
+            "${GITHUB_REF_NAME}"
+
+      - name: Create ZIP archive
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          ARCHIVE_FORMAT: 'zip'
+        run: |
+          git archive \
+            --format "${ARCHIVE_FORMAT}" \
+            --output /tmp/${REPO_NAME}-${GITHUB_REF_NAME}.${ARCHIVE_FORMAT} \
+            --prefix ${REPO_NAME}-${GITHUB_REF_NAME}/ \
+            --worktree-attributes \
+            "${GITHUB_REF_NAME}"
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+              --repo="${GITHUB_REPOSITORY}" \
+              --title="${GITHUB_REPOSITORY#*/} ${tag#v}" \
+              --generate-notes \
+              /tmp/${REPO_NAME}-${GITHUB_REF_NAME}.*

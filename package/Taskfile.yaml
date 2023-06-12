@@ -1,0 +1,372 @@
+---
+version: "3"
+
+tasks:
+
+  install:
+    desc: Download and install packages
+    summary: |
+      Download and install packages.
+    preconditions:
+      - sh: '[ ! -z {{ quote .NAME }} ]'
+        msg: NAME {{ quote .NAME }} is not defined. Please specify the package NAME as an ENV var.
+      - sh: command -v yq
+        msg: yq is required to process YAML files. Please install 'yq' and try again.
+    vars:
+      PACKAGES: '{{ osClean (print "package/packages.yaml") }}'
+      # Name is the binary package to install, not the repo name or actual package name.
+      NAME: '{{.NAME | default "" }}'
+      NOTICE: '{{.NOTICE | default false }}'
+      PKG_NOTICE:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          notice=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.notice // ""' {{.PACKAGES}})
+          {{ if not .NOTICE }}
+            # Package notice provided and NOTICE was not called from another task.
+            [ -z "${notice}" ] && echo "NOTICE: ${notice}" && exit 1
+          {{ end }}
+      PKG_PROVIDER:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          provider=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider // ""' {{.PACKAGES}})
+          [ -z "${provider}" ] && echo "Provider '${provider}' not defined in package definitions" && exit 1
+          echo "${provider}"
+      PKG_REPO_NAME:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          repo=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo // ""' {{.PACKAGES}})
+          [ -z "${repo}" ] && echo "provider.repo '${repo}' not defined in package definitions" && exit 1
+          echo "${repo}"
+      PKG_REPO_OWNER:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          owner=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner // ""' {{.PACKAGES}})
+          [ -z "${owner}" ] && echo "provider.owner '${owner}' not defined in package definitions" && exit 1
+          echo "${owner}"
+      PKG_ARCH:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.arch.{{ARCH}} // "{{ARCH}}"' {{.PACKAGES}}
+      PKG_OS:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.os.{{OS}} // "{{OS}}"' {{.PACKAGES}}
+      # Does the archive have a directory?
+      PKG_ARCHIVE_DIR:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.dir // ""' {{.PACKAGES}}
+      # Archive directory name: PKG_ARCHIVE_DIR_NAME/PKG_ARCHIVE_FILE_NAME
+      PKG_ARCHIVE_DIR_NAME:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          # Default is same as repo name.
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.dir_name // "{{.PKG_REPO}}"' {{.PACKAGES}}
+      # Archive file name: PKG_ARCHIVE_DIR_NAME/PKG_ARCHIVE_FILE_NAME
+      PKG_ARCHIVE_FILE_NAME:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          # Default is same as repo name.
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.file_name // "{{.PKG_REPO}}"' {{.PACKAGES}}
+      # Archive extension
+      PKG_ARCHIVE_EXT:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          archive_ext=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.ext.{{OS}} // ""' {{.PACKAGES}})
+          if [ -z "${archive_ext}" ]; then
+            # Blank means package is not a compressed archive
+            yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.ext.default // ""' {{.PACKAGES}}
+          else
+            echo "${archive_ext}"
+          fi
+      # yq pattern to match an asset
+      PKG_ASSET_PATTERN:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          pattern=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.asset.pattern // ""' {{.PACKAGES}})
+          [ -z "${pattern}" ] && echo "asset.pattern '${pattern}' not defined in package definitions" && exit 1
+          name={{.NAME}}
+          repo_name={{.PKG_REPO_NAME}}
+          os={{.PKG_OS}}
+          arch={{.PKG_ARCH}}
+          exe_ext={{exeExt}}
+          archive_ext={{.PKG_ARCHIVE_EXT}}
+          eval echo "$(echo "${pattern}")"
+      # Regular expression to extract the Semantic versioning info from 'command version' or similar
+      PKG_SEMVER_REGEX:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          # Default is the standard v0.1.2
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.semver.regex // "v?[0-9]+\.([0-9]+\.?){1,}"' {{.PACKAGES}}
+      # Command to check of the package is installed.
+      PKG_STATUS_COMMAND:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.status.command // "{{.NAME}} --version"' {{.PACKAGES}}
+    cmds:
+      # - |
+      #   echo 'NAME: {{.NAME}}'
+      #   echo 'PKG_PROVIDER: {{.PKG_PROVIDER}}'
+      #   echo 'PKG_REPO_NAME: {{.PKG_REPO_NAME}}'
+      #   echo 'PKG_REPO_OWNER: {{.PKG_REPO_OWNER}}'
+      #   echo 'PKG_ARCH: {{.PKG_ARCH}}'
+      #   echo 'PKG_OS: {{.PKG_OS}}'
+      #   echo 'PKG_ARCHIVE_DIR: {{.PKG_ARCHIVE_DIR}}'
+      #   echo 'PKG_ARCHIVE_DIR_NAME: {{.PKG_ARCHIVE_DIR_NAME}}'
+      #   echo 'PKG_ARCHIVE_FILE_NAME: {{.PKG_ARCHIVE_FILE_NAME}}'
+      #   echo 'PKG_ARCHIVE_EXT: {{.PKG_ARCHIVE_EXT}}'
+      #   echo 'PKG_ASSET_PATTERN: {{.PKG_ASSET_PATTERN}}'
+      #   echo 'PKG_SEMVER_REGEX: {{.PKG_SEMVER_REGEX}}'
+      #   echo 'PKG_STATUS_COMMAND: {{.PKG_STATUS_COMMAND}}'
+      - task: :github:download
+        vars: {
+          REPO_NAME: '{{.PKG_REPO_NAME}}',
+          REPO_OWNER: '{{.PKG_REPO_OWNER}}',
+          REPO: '{{.PKG_REPO_OWNER}}/{{.PKG_REPO_NAME}}',
+          PKG_ARCH: '{{.PKG_ARCH}}',
+          PKG_OS: '{{.PKG_OS}}',
+          FILE_NAME: '{{.NAME}}{{exeExt}}',
+          PKG_ARCHIVE_DIR: '{{.PKG_ARCHIVE_DIR}}',
+          PKG_ARCHIVE_DIR_NAME: '{{.PKG_ARCHIVE_DIR_NAME}}',
+          PKG_ARCHIVE_FILE_NAME: '{{.PKG_ARCHIVE_FILE_NAME}}',
+          PKG_ARCHIVE_EXT: '{{.PKG_ARCHIVE_EXT}}',
+          PKG_ASSET_PATTERN: '{{.PKG_ASSET_PATTERN}}',
+          BIN_DIR: '{{.BIN_DIR}}'
+        }
+    status:
+      - '{{.PKG_STATUS_COMMAND}}'
+      - task is-latest-version NAME={{.NAME}}
+
+  list:
+    desc: List packages available for install
+    summary: |
+      List packages that are available for installation.
+    preconditions:
+      - sh: command -v yq
+        msg: yq is required to process YAML files. Please install 'yq' and try again.
+    vars:
+      PACKAGES: '{{ osClean (print "package/packages.yaml") }}'
+    cmds:
+      - |
+        yq --output-format json --unwrapScalar '.packages | keys | .[]' {{.PACKAGES}}
+
+  list-detailed:
+    desc: List packages available for install
+    summary: |
+      List packages that are available for installation.
+    preconditions:
+      - sh: command -v yq
+        msg: yq is required to process YAML files. Please install 'yq' and try again.
+    vars:
+      PACKAGES: '{{ osClean (print "package/packages.yaml") }}'
+    cmds:
+      - |
+        yq --output-format json '.packages[] |= with_entries(select(.key == "link" or .key == "description"))' {{.PACKAGES}}
+
+  list-assets:
+    desc: List the assets of a package
+    preconditions:
+      - sh: command -v yq
+        msg: yq is required to process YAML files. Please install 'yq' and try again.
+    vars:
+      PACKAGES: '{{ osClean (print "package/packages.yaml") }}'
+      # Name is the binary package to install, not the repo name or actual package name.
+      NAME: '{{.NAME | default "" }}'
+      PKG_PROVIDER:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          provider=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider // ""' {{.PACKAGES}})
+          [ -z "${provider}" ] && echo "Provider '${provider}' not defined in package definitions" && exit 1
+          echo "${provider}"
+      PKG_REPO_NAME:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          repo=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo // ""' {{.PACKAGES}})
+          [ -z "${repo}" ] && echo "provider.repo '${repo}' not defined in package definitions" && exit 1
+          echo "${repo}"
+      PKG_REPO_OWNER:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          owner=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner // ""' {{.PACKAGES}})
+          [ -z "${owner}" ] && echo "provider.owner '${owner}' not defined in package definitions" && exit 1
+          echo "${owner}"
+      REPO_URL: 'https://api.github.com/repos/{{.PKG_REPO_OWNER}}/{{.PKG_REPO_NAME}}/releases/latest'
+    cmds:
+      - cmd: |
+          xh --follow --body GET {{ squote .REPO_URL }} |
+            yq --unwrapScalar --output-format json '.assets[].name // ""'
+
+  is-latest-version:
+    desc: Check if the installed version is the latest version
+    # TODO: Use proper semver comparison to determine major/minor upgrades/updates.
+    summary: |
+      Check if the installed version is the latest version of the package. This extracts the version from
+      'command version' (or similar) and compares it to the latest git tag in the repo. If they match, you're running
+      the latest version. Doing a proper semver comparison could be a future enhancement.
+    preconditions:
+      - sh: command -v yq
+        msg: yq is required to process YAML files. Please install 'yq' and try again.
+    vars:
+      PACKAGES: '{{ osClean (print "package/packages.yaml") }}'
+      # Name is the binary package to install, not the repo name or actual package name.
+      NAME: '{{.NAME | default "" }}'
+      PKG_PROVIDER:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          provider=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider // ""' {{.PACKAGES}})
+          [ -z "${provider}" ] && echo "Provider '${provider}' not defined in package definitions" && exit 1
+          echo "${provider}"
+      PKG_REPO_NAME:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          repo=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo // ""' {{.PACKAGES}})
+          [ -z "${repo}" ] && echo "provider.repo '${repo}' not defined in package definitions" && exit 1
+          echo "${repo}"
+      PKG_REPO_OWNER:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          owner=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner // ""' {{.PACKAGES}})
+          [ -z "${owner}" ] && echo "provider.owner '${owner}' not defined in package definitions" && exit 1
+          echo "${owner}"
+      REPO_URL: 'https://api.github.com/repos/{{.PKG_REPO_OWNER}}/{{.PKG_REPO_NAME}}/releases/latest'
+      PKG_LATEST_VERSION:
+        sh: |
+          xh --follow --body GET {{ squote .REPO_URL }} |
+            yq --unwrapScalar --output-format json '.tag_name // ""'
+      PKG_RELEASE_DATE:
+        sh: |
+          xh --follow --body GET {{ squote .REPO_URL }} |
+            yq --unwrapScalar --output-format json '.published_at // ""'
+      PKG_SEMVER_REGEX:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          # Default is the standard v0.1.2
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.semver.regex // "v?[0-9]+\.([0-9]+\.?){1,}"' {{.PACKAGES}}
+      PKG_STATUS_COMMAND:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.status.command // "{{.NAME}} --version"' {{.PACKAGES}}
+      PKG_CURRENT_VERSION:
+        # FIXME: Check if the PKG_STATUS_COMMAND fails
+        sh: |
+          {{.PKG_STATUS_COMMAND}} |
+            rg --color never --only-matching --max-count 1 {{ squote .PKG_SEMVER_REGEX }}
+    cmds:
+      - cmd: |
+          # Remove the preceding 'v' since it may cause the comparison to not be the same.
+          current=$(echo {{ squote .PKG_CURRENT_VERSION }} | coreutils tr --delete 'v')
+          latest=$(echo {{ squote .PKG_LATEST_VERSION }} | coreutils tr --delete 'v')
+          if [ ${current} != ${latest} ]; then
+            echo "Package is not the latest version"
+            echo "Current version: {{.PKG_CURRENT_VERSION}}"
+            echo "Latest version: {{.PKG_LATEST_VERSION}}"
+            echo "Release date: {{.PKG_RELEASE_DATE}}"
+            exit 1
+          else
+            echo "Package is the latest version"
+            echo "Current version: {{.PKG_CURRENT_VERSION}}"
+            echo "Latest version: {{.PKG_LATEST_VERSION}}"
+            echo "Release date: {{.PKG_RELEASE_DATE}}"
+          fi
+
+  get-latest-version:
+    desc: Get the latest version of a package
+    preconditions:
+      - sh: command -v yq
+        msg: yq is required to process YAML files. Please install 'yq' and try again.
+    vars:
+      PACKAGES: '{{ osClean (print "package/packages.yaml") }}'
+      # Name is the binary package to install, not the repo name or actual package name.
+      NAME: '{{.NAME | default "" }}'
+      PKG_PROVIDER:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          provider=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider // ""' {{.PACKAGES}})
+          [ -z "${provider}" ] && echo "Provider '${provider}' not defined in package definitions" && exit 1
+          echo "${provider}"
+      PKG_REPO_NAME:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          repo=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo // ""' {{.PACKAGES}})
+          [ -z "${repo}" ] && echo "provider.repo '${repo}' not defined in package definitions" && exit 1
+          echo "${repo}"
+      PKG_REPO_OWNER:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          owner=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner // ""' {{.PACKAGES}})
+          [ -z "${owner}" ] && echo "provider.owner '${owner}' not defined in package definitions" && exit 1
+          echo "${owner}"
+      REPO_URL: 'https://api.github.com/repos/{{.PKG_REPO_OWNER}}/{{.PKG_REPO_NAME}}/releases/latest'
+    cmds:
+      - cmd: |
+          xh --follow --body GET {{ squote .REPO_URL }} |
+            yq --unwrapScalar --output-format json '.tag_name // ""'
+
+  get-version:
+    desc: Get the current version of the package
+    preconditions:
+      - sh: command -v rg
+        msg: rg is required to search through text. Please install 'rg' and try again.
+    vars:
+      PACKAGES: '{{ osClean (print "package/packages.yaml") }}'
+      # Name is the binary package to install, not the repo name or actual package name.
+      NAME: '{{.NAME | default "" }}'
+      PKG_SEMVER_REGEX:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          # Default is the standard v0.1.2
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.semver.regex // "v?[0-9]+\.([0-9]+\.?){1,}"' {{.PACKAGES}}
+      # Command to check of the package is installed.
+      PKG_STATUS_COMMAND:
+        sh: |
+          [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.status.command // "{{.NAME}} --version"' {{.PACKAGES}}
+    cmds:
+      - cmd: |
+          {{.PKG_STATUS_COMMAND}} |
+            rg --color never --only-matching {{ squote .PKG_SEMVER_REGEX }}
+
+  docker-compose:
+    # Install the "compose" plugin for docker. This is "docker compose" v2 instead of "docker-compose" v1. Installs are
+    # supported only for Linux.
+    # https://docs.docker.com/compose/install/
+    # https://github.com/docker/compose
+    desc: Install the 'compose' plugin for "docker compose" v2
+    summary: |
+      Install the "compose" plugin for docker. This is "docker compose" v2 instead of "docker-compose" v1. Installs are
+      supported only for Linux.
+    # TODO: Should other OS's be supported?
+    # Officially, manually installing "compose" is supported only on Linux. Other OS's are expected to install
+    # Docker Desktop.
+    platforms: [linux]
+    preconditions:
+      - sh: command -v yq
+        msg: yq is required to process YAML files. Please install 'yq' and try again.
+    vars:
+      NAME: docker-compose
+      BIN_DIR_ROOT: '/usr/local/lib/docker/cli-plugins'
+      BIN_DIR_USER: '{{.HOME}}/.docker/cli-plugins'
+      BIN_DIR:
+        sh: |
+          {{- if eq OS "windows" -}}
+            {{fail "Windows is not supported. Install Docker Desktop for 'docker compose'"}}
+          {{- else -}}
+            echo {{ if eq .USER "root" -}}{{ squote .BIN_DIR_ROOT }}{{- else -}}{{ squote .BIN_DIR_USER }}{{- end }}
+          {{- end -}}
+    deps:
+      - task: :init:create-bin-dir
+        vars: {
+          BIN_DIR: '{{.BIN_DIR}}'
+        }
+    cmds:
+      - task: package
+        vars: {
+          NAME: '{{.NAME}}',
+          NOTICE: true,
+          BIN_DIR: '{{.BIN_DIR}}',
+        }
+    status:
+      # Note: This explicitly checks if the file is in BIN_DIR. This means multiple versions can be installed, one in
+      # root and one in the user's bin directory.
+      # TODO: Check for version numbers to see if it needs to be updated.
+      - 'docker compose version'

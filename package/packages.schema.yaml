@@ -1,0 +1,181 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Package YAML Schema",
+  "description": "Schema for local package files",
+  "$ref": "#/definitions/Packages",
+  "definitions": {
+    "Packages": {
+      "title": "Packages",
+      "type": "object",
+      "patternProperties": {
+        "^.*$": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Package"
+            }
+          ],
+        },
+      },
+    },
+    "Package": {
+      "title": "Package",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "link": {
+          "description": "Link to package's project, usually a git repo",
+          "type": "string"
+        },
+        "description": {
+          "description": "Description of the package",
+          "type": "string"
+        },
+        "notice": {
+          "description": "Notice of special handling for the package, indicating it cannot be installed directly",
+          "type": "string"
+        },
+        "provider": {
+          "description": "Package provider. Only github is supported",
+          "type": "string"
+        },
+        "github": {
+          "title": "Github",
+          "description": "Package GitHub provider",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "owner": {
+              "description": "Package owner",
+              "type": "string"
+            },
+            "repo": {
+              "description": "Package repo",
+              "type": "string"
+            }
+          },
+          "required": [
+            "owner",
+            "repo"
+          ],
+        },
+        "arch": {
+          "$ref": "#/definitions/Arch"
+        },
+        "os": {
+          "title": "OS",
+          "type": "object",
+          "properties": {
+            "windows": {
+              "type": "string"
+            },
+            "darwin": {
+              "type": "string"
+            },
+            "linux": {
+              "type": "string"
+            },
+          },
+        },
+        "asset": {
+          "title": "Asset",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "filename": {
+              "type": "string"
+            },
+          },
+        },
+        "archive": {
+          "title": "Archive",
+          "description": "Information about the compressed archive, usually .zip or .tar.gz",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dir": {
+              "description": "Does the archive have a directory?",
+              "type": "boolean"
+            },
+            "dir_name": {
+              "description": "Directory name in the archive",
+              "type": "string"
+            },
+            "file_name": {
+              "description": "File name in the archive",
+              "type": "string"
+            },
+            "ext": {
+              "title": "Ext",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "windows": {
+                  "type": "string"
+                },
+                "linux": {
+                  "type": "string"
+                },
+                "darwin": {
+                  "type": "string"
+                },
+                "default": {
+                  "type": "string"
+                },
+              },
+            },
+          },
+        },
+        "semver": {
+          "title": "SemVer",
+          "description": "Semantic versioning information",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "regex": {
+              "description": "Regex to extract the semantic version from the package",
+              "type": "string"
+            },
+          },
+        },
+        "status":{
+          "title": "Status",
+          "description": "Get the package status",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "description": "Command to run to get the status",
+              "type": "string"
+            },
+          },
+        },
+      },
+      "required": [
+        "asset",
+        "github",
+        "provider",
+        "status",
+      ],
+    },
+    "Arch": {
+      "title": "Arch",
+      "type": "object",
+      "properties": {
+        "amd64": {
+          "type": "string"
+        },
+        "arm64": {
+          "type": "string"
+        },
+      },
+    },
+  },
+  "properties": {
+    "packages": {
+      "$ref": "#/definitions/Packages",
+    },
+  },
+}

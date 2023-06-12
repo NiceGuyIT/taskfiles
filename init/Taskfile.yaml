@@ -18,12 +18,14 @@ tasks:
       - task: dl-task
       - task: dl-xh
       - task: dl-coreutils
+      - task: dl-ouch
     status:
       - task --silent init:create-bin-dir
       - task --silent init:dl-yq
       - task --silent init:dl-task
       - task --silent init:dl-xh
       - task --silent init:dl-coreutils
+      - task --silent init:dl-ouch
 
   create-bin-dir:
     desc: Create the bin directory
@@ -32,18 +34,20 @@ tasks:
         msg: '.BIN_DIR is not defined'
     cmds:
       - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
+      - cmd: 'echo "BIN_DIR_ADMIN: {{.BIN_DIR_ADMIN}}"'
       - cmd: |
           mkdir --parents {{ osClean .BIN_DIR }}
         platforms: [linux, darwin]
         # FIXME: Check if BIN_DIR is already in the path for the user
       - cmd: |
           powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
-            if (-not (Test-Path -Path {{ squote .BIN_DIR }})) {
-              New-Item -Path {{ squote .BIN_DIR }} -ItemType Directory
+            if (-not (Test-Path -Path "{{ osClean .BIN_DIR }}")) {
+              New-Item -Path "{{ osClean .BIN_DIR }}" -ItemType Directory
             }
-            $value = Get-ItemProperty -Path HKCU:\Environment -Name Path
-            $newpath = $value.Path += "{{ (print ";" .BIN_DIR) }}"
-            Set-ItemProperty -Path HKCU:\Environment -Name Path -Value $newpath
+            # Disable this until checks are in place if the path already exists in ENV
+            #$value = Get-ItemProperty -Path HKCU:\Environment -Name Path
+            #$newpath = $value.Path += "{{ (print ";" .BIN_DIR) }}"
+            #Set-ItemProperty -Path HKCU:\Environment -Name Path -Value $newpath
           '
         platforms: [windows]
     status:
@@ -51,7 +55,7 @@ tasks:
 
   dl-yq:
     # https://github.com/mikefarah/yq
-    desc: Download 'yq' into the bin directory
+    desc: Download 'yq', a portable command-line YAML, JSON, XML, CSV, TOML and properties processor
     deps:
       - create-bin-dir
     vars:
@@ -74,8 +78,8 @@ tasks:
       - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
 
   dl-task:
-    # https://github.com/go-task/task/
-    desc: Download 'task' into the bin directory
+    # https://github.com/go-task/task
+    desc: Download 'task', a task runner / simpler Make alternative written in Go
     deps:
       - create-bin-dir
     vars:
@@ -122,7 +126,7 @@ tasks:
 
   dl-xh:
     # https://github.com/ducaale/xh
-    desc: Download 'xh' into the bin directory
+    desc: Download 'xh', friendly and fast tool for sending HTTP requests
     deps:
       - create-bin-dir
       - dl-yq
@@ -201,6 +205,69 @@ tasks:
       # See https://github.com/uutils/coreutils/issues/4104
       ARCH: '{{ if or (eq ARCH "amd64") (eq ARCH "arm64") }}x86_64{{ else }}{{ARCH}}{{ end }}'
       ASSET_PATTERN: '{{.NAME}}-*-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ else if eq OS "windows" }}-gnu{{ end }}{{.COMPRESS_EXT}}'
+      REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
+      # FIXME: The dynamic variables are executed before determining the status, resulting in 2 unauthenticated calls
+      # FIXME: to the GitHub API. This should be fixed.
+      # FIXME: More importantly, tasks that depend on 'xh' will also result in 2 API calls.
+      # FIXME: If many tasks are run concurrently, it's possible to exceed the API limits and get locked out for a
+      # FIXME: minute.
+      DOWNLOAD_URL:
+        sh: |
+          curl --silent --location --output - {{ squote .REPO_URL}} |
+          yq --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .browser_download_url'
+      PACKAGE_NAME:
+        sh: |
+          curl --silent --location --output - {{ squote .REPO_URL}} |
+          yq --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .name'
+      PACKAGE_DIR: '{{ trimSuffix .COMPRESS_EXT .PACKAGE_NAME }}'
+    preconditions:
+      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
+        msg: |
+          curl is required to download files. Please install 'curl' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
+        msg: |
+          tar is required to extract files from archives. Please install 'tar' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
+        msg: |
+          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
+    cmds:
+      - cmd: |
+          curl --silent --location --output - {{ squote .DOWNLOAD_URL }} |
+          tar --directory {{ squote .BIN_DIR }} --strip-components 1 -zxf - {{ squote (print .PACKAGE_DIR "/" .FILE_NAME) }}
+          chmod a+x {{ squote .BIN_NAME}}
+        platforms: [linux, darwin]
+      - cmd: |
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
+            $tmp_file = New-TemporaryFile
+            Remove-Item -Path $tmp_file
+            $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
+            $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
+            $ProgressPreference = "SilentlyContinue"
+            Invoke-WebRequest -URI {{ quote .DOWNLOAD_URL }} -OutFile $zip_file
+            Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
+            $bin_file = Join-Path -Path $tmp_dir -ChildPath {{ quote .PACKAGE_DIR }} | Join-Path -ChildPath {{ quote .FILE_NAME }}
+            Copy-Item -Path $bin_file -Destination {{ quote .BIN_DIR }}
+            Remove-Item -Path $tmp_dir -Recurse
+          '
+        platforms: [windows]
+    status:
+      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'
+
+  dl-ouch:
+    # https://github.com/ouch-org/ouch
+    desc: Install 'ouch', painless compression and decompression for your terminal
+    deps:
+      - create-bin-dir
+    vars:
+      # Order matters!
+      NAME: ouch
+      OWNER: ouch-org
+      REPO: '{{.OWNER}}/{{.NAME}}'
+      FILE_NAME: '{{.NAME}}{{exeExt}}'
+      BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+      ARCH: '{{ if or (eq ARCH "amd64") (eq ARCH "arm64") }}x86_64{{ else }}{{ARCH}}{{ end }}'
+      ASSET_PATTERN: '{{.NAME}}-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ else if eq OS "windows" }}-gnu{{ end }}{{.COMPRESS_EXT}}'
       REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
       # FIXME: The dynamic variables are executed before determining the status, resulting in 2 unauthenticated calls
       # FIXME: to the GitHub API. This should be fixed.

@@ -84,6 +84,8 @@ tasks:
     summary: |
       This task will get a config key from the TRMM 'local_config.py' configuration file, and then process it with
       the JSON_EXP to get a single value.
+      Note: This is the same as this command.
+        /rmm/api/env/bin/python /rmm/api/tacticalrmm/manage.py get_config dbuser
 
       variables:
        - CONFIG_KEY: Variable in 'local_settings.py' that you want to get. Required.

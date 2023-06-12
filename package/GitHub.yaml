@@ -1,0 +1,138 @@
+---
+version: 3
+
+tasks:
+
+  download:
+    internal: true
+    desc: Download a release from GitHub
+    preconditions:
+      - sh: '[ ! -z {{ quote .FILE_NAME }} ]'
+        msg: FILE_NAME {{ quote .FILE_NAME }} is not defined.
+      - sh: '[ ! -z {{ quote .REPO_NAME }} ]'
+        msg: REPO_NAME {{ quote .REPO_NAME }} is not defined.
+      - sh: '[ ! -z {{ quote .REPO_OWNER }} ]'
+        msg: REPO_OWNER {{ quote .REPO_OWNER }} is not defined.
+      - sh: '[ ! -z {{ quote .PKG_ASSET_PATTERN }} ]'
+        msg: PKG_ASSET_PATTERN {{ quote .PKG_ASSET_PATTERN }} is not defined.
+    vars:
+      # Order matters!
+      REPO_NAME: '{{.REPO_NAME | default "" }}'
+      REPO_OWNER: '{{.REPO_OWNER | default "" }}'
+      REPO: '{{.REPO | default (print .REPO_OWNER "/" .REPO_NAME) }}'
+      FILE_NAME: '{{.FILE_NAME | default "" }}'
+      BIN_NAME: '{{osClean (print .BIN_DIR "/" .FILE_NAME) }}'
+      # Some packages use x86_64 instead of amd64
+      PKG_ARCH: '{{ .PKG_ARCH | default ARCH }}'
+      PKG_OS: '{{ .PKG_OS | default OS }}'
+      REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
+      PKG_ARCHIVE_DIR: '{{ if eq .PKG_ARCHIVE_DIR "true" }}true{{ end }}'
+      PKG_ARCHIVE_DIR_NAME: '{{.PKG_ARCHIVE_DIR_NAME | default "" }}'
+      PKG_ARCHIVE_FILE_NAME: '{{.PKG_ARCHIVE_FILE_NAME | default "" }}'
+      PKG_ARCHIVE_EXT: '{{.PKG_ARCHIVE_EXT | default "" }}'
+      TMP_DIR:
+        sh: |
+         coreutils mktemp --directory
+      GITHUB_API_FILE:
+        sh: |
+          xh --follow --body --download --output {{ squote (print .TMP_DIR "/latest.json") }} GET {{ squote .REPO_URL }}
+          echo {{ squote (print .TMP_DIR "/latest.json") }}
+      DOWNLOAD_URL:
+        sh: |
+          declare -a url=($(
+            yq --unwrapScalar --output-format json '.assets[] | select(.name=={{ quote .PKG_ASSET_PATTERN }}) | .browser_download_url // ""' \
+              {{ squote .GITHUB_API_FILE }}
+          ))
+          if [[ ${#url[@]} -ne 1 ]]; then
+            echo 'PKG_ASSET_PATTERN did not match exactly 1 asset. Please check the PKG_ASSET_PATTERN for correctness.'
+            echo 'PKG_ASSET_PATTERN: {{ quote .PKG_ASSET_PATTERN }}'
+            echo "url: ${url}"
+            exit 1
+          else
+            echo ${url[@]}
+          fi
+      PACKAGE_NAME:
+        sh: |
+          declare -a asset_name=($(
+            yq --unwrapScalar --output-format json '.assets[] | select(.name=={{ quote .PKG_ASSET_PATTERN }}) | .name // ""' \
+              {{ squote .GITHUB_API_FILE }}
+          ))
+          if [[ ${#asset_name[@]} -ne 1 ]]; then
+            echo 'PKG_ASSET_PATTERN did not match exactly 1 asset. Please check the PKG_ASSET_PATTERN for correctness.'
+            echo 'PKG_ASSET_PATTERN: {{ quote .PKG_ASSET_PATTERN }}'
+            echo "asset_name: ${asset_name}"
+            exit 1
+          else
+            echo ${asset_name[@]}
+          fi
+      TAG_NAME:
+        # TAG_NAME is the version. Currently not used.
+        sh: |
+          yq --unwrapScalar --output-format json '.tag_name // ""' {{ squote .GITHUB_API_FILE }}
+      # TODO: Is this needed?
+      PACKAGE_DIR: '{{.PACKAGE_DIR | default (trimSuffix .PKG_ARCHIVE_EXT .PACKAGE_NAME) }}'
+    cmds:
+      # Download
+      - cmd: |
+          {{ if .PKG_ARCHIVE_EXT -}}
+            # Download archive to the temp directory for decompression
+            xh --body --download --follow --output {{ squote (print .TMP_DIR "/" .PACKAGE_NAME) }} {{ squote .DOWNLOAD_URL }}
+          {{ else }}
+            # No archive extension means the binary is not compressed. Save directly to BIN_DIR
+            xh --body --download --follow --output {{ squote .BIN_NAME }} {{ squote .DOWNLOAD_URL }}
+          {{ end }}
+      # Decompress
+      - cmd: |
+          {{ if .PKG_ARCHIVE_EXT -}}
+            cd {{.TMP_DIR}}
+            ouch decompress {{.PACKAGE_NAME}}
+            {{ if .PKG_ARCHIVE_DIR -}}
+              # The smart unpack feature does not choose logical filenames and there's no way to control it.
+              # Use wildcard for the directory until one or both of these are closed.
+              # https://github.com/ouch-org/ouch/issues/322
+              # https://github.com/ouch-org/ouch/issues/443
+              #
+              # Task doesn't expand the wildcard if used in a string. Need to 'echo' in a subshell or assign to var
+              # and use the var.
+              coreutils cp "$(echo {{osClean (print .TMP_DIR "/*/" .FILE_NAME) }})" "{{ osClean .BIN_NAME }}"
+            {{ else }}
+              coreutils cp "$(echo {{osClean (print .TMP_DIR "/" .FILE_NAME) }})" "{{ osClean .BIN_NAME }}"
+            {{ end }}
+          {{ end }}
+        shopt: [globstar]
+      # Make executable
+      - cmd: |
+          {{ if ne OS "windows" }}
+            coreutils chmod a+x {{ squote .BIN_NAME }}
+          {{ end }}
+      - defer: |
+          coreutils rm -r {{ squote .TMP_DIR }}
+
+  list-assets:
+    desc: List the assets of a package
+    preconditions:
+      - sh: '[ ! -z {{ quote .REPO_NAME }} ]'
+        msg: REPO_NAME {{ quote .REPO_NAME }} is not defined.
+      - sh: '[ ! -z {{ quote .REPO_OWNER }} ]'
+        msg: REPO_OWNER {{ quote .REPO_OWNER }} is not defined.
+    vars:
+      # Order matters!
+      REPO_NAME: '{{.REPO_NAME | default "" }}'
+      REPO_OWNER: '{{.REPO_OWNER | default "" }}'
+      REPO_URL: 'https://api.github.com/repos/{{.REPO_OWNER}}/{{.REPO_NAME}}/releases/latest'
+    cmds:
+      - cmd: |
+          xh --follow --body GET {{ squote .REPO_URL }} |
+            yq --unwrapScalar --output-format json '.assets[].name // ""'
+
+  get-rate-limit:
+    desc: Get the current rate limit information for the GitHub API
+    summary: |
+      Get the rate limit for the GitHub API. This is specific to your IP.
+    preconditions:
+      - sh: command -v xh
+        msg: xh is required to download files. Please install 'xh' and try again.
+    cmds:
+      - cmd: |
+          xh --headers https://api.github.com/rate_limit
+          echo For more information, see https://docs.github.com/en/rest/rate-limit

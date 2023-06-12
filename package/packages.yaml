@@ -1,0 +1,396 @@
+---
+
+packages:
+
+  # Begin with the package name.
+  example-template:
+    # Link to the package's project, usually a git repo
+    link: https://github.com/NiceGuyIT/taskfiles
+    description: A description of the package
+    # Only GitHub is supported. Other providers may be added in the future.
+    provider: github
+    github:
+      # owner and repo are self-explanatory.
+      owner: NiceGuyIT
+      repo: taskfiles
+    # arch is a translation of Go's ARCH variable to the repo's ARCH naming conventions.
+    # If the Go ARCH is not listed (matched), it's assumed to be same as Go's ARCH.
+    arch:
+      # 'go version' returns linux/amd64 which is mapped to 'x86_64' in the repo's releases.
+      amd64: x86_64
+    # os is a translation of Go's OS variable to the repo's OS naming conventions.
+    # If the Go OS is not listed (matched), it's assumed to be same as Go's OS.
+    os:
+      darwin: macos
+    # Use this to specify non-default binary locations and filenames.
+    bin:
+      # Specify a different bin directory.
+      dir: /usr/local/bin/
+      # Specify a different bin filename.
+      file: example
+    # asset vars relate to the file that is going to be downloaded.
+    asset:
+      # asset_pattern is the bash pattern to match the asset. Task doesn't support 'eval' for it to be a Task pattern.
+      # TODO: gomplate, just or similar may be used in the future.
+      # Possible variables:
+      #   name (NAME)
+      #   repo_name (PKG_REPO_NAME)
+      #   os (PKG_OS)
+      #   arch (PKG_ARCH)
+      #   exe_ext (exeExt: .exe if on Windows)
+      #   archive_ext (PKG_ARCHIVE_EXT)
+      # pattern: '${name}_*_${os}_${arch}${exe_ext}'
+      pattern: '${name}-*-${os}-${arch}${compress_ext}'
+    archive:
+      # Are the files compressed in a directory matching the asset name?
+      dir: true
+      # If the compress directory does not match the asset name, what is the name of the directory?
+      # TODO: 'ouch' uses Smart Unpack. Is this needed?
+      dir_name: '${asset_name}'
+      # compress_ext translates the OS to the compression extension.
+      ext:
+        windows: .zip
+        linux: .tar.gz
+        darwin: .tar.gz
+        # Default is used if the OS is not listed above.
+        default: .tar.gz
+    # semver is the semantic versioning information
+    semver:
+      # regex is the regular expression to extract the semantic versioning from the status.command.
+      # This is the default if not specified.
+      regex: 'v?[0-9]+\.([0-9]+\.?){1,}'
+    # status contains information to get the package status.
+    status:
+      # command to run to check of the package is installed. Usually this is the command used to get the version.
+      command: example --version
+
+  age:
+    link: https://github.com/FiloSottile/age
+    description: age file encryption
+    provider: github
+    github:
+      owner: FiloSottile
+      repo: age
+    archive:
+      dir: true
+      dir_name: age
+      ext:
+        windows: .zip
+        default: .tar.gz
+    asset:
+      pattern: '${repo_name}-*-${os}-${arch}${archive_ext}'
+    status:
+      command: age --version
+
+  age-keygen:
+    link: https://github.com/FiloSottile/age
+    description: age-keygen from the age file encryption package
+    provider: github
+    github:
+      owner: FiloSottile
+      repo: age
+    archive:
+      dir: true
+      dir_name: age
+      file_name: age-keygen
+      ext:
+        windows: .zip
+        default: .tar.gz
+    asset:
+      pattern: '${repo_name}-*-${os}-${arch}${archive_ext}'
+    status:
+      command: age-keygen --version
+
+  alacritty:
+    link: https://github.com/alacritty/alacritty
+    description: A fast, cross-platform, OpenGL terminal emulator
+    provider: github
+    github:
+      owner: alacritty
+      repo: alacritty
+    arch:
+      amd64: x86_64
+    asset:
+      pattern: 'Alacritty-*-portable${exe_ext}'
+    status:
+      command: alacritty --version
+
+  atuin:
+    link: https://github.com/ellie/atuin
+    description: magical shell history
+    provider: github
+    github:
+      owner: ellie
+      repo: atuin
+    arch:
+      amd64: x86_64
+      arm64: x86_64
+    os:
+      linux: linux-musl
+    asset:
+      pattern: '${repo_name}-*-${arch}-*-${os}${archive_ext}'
+    status:
+      command: atuin --version
+
+  cfssl-certinfo:
+    link: https://github.com/cloudflare/cfssl
+    description: Cloudflare's tool to query certificates from files or domains (servers).
+    notice: This package cannot be installed directly. Use 'install:docker-compose' instead.
+    provider: github
+    github:
+      owner: cloudflare
+      repo: cfssl
+    arch:
+      arm64: amd64
+    asset:
+      pattern: '${repo_name}_*_${os}_${arch}${exe_ext}'
+    status:
+      command: cfssl-certinfo --help
+
+  docker-compose:
+    link: https://github.com/docker/compose
+    description: Install "docker compose" v2 instead of "docker-compose" v1. Linux only
+    provider: github
+    github:
+      owner: docker
+      repo: compose
+    arch:
+      amd64: x86_64
+      arm64: aarch64
+    asset:
+      pattern: '${name}-${os}-${arch}${exe_ext}'
+    status:
+      command: docker compose version
+
+  doggo:
+    link: https://github.com/mr-karan/doggo
+    description: A Command-line DNS Client for Humans
+    provider: github
+    github:
+      owner: mr-karan
+      repo: doggo
+    asset:
+      pattern: '${repo_name}_*_${os}_${arch}${archive_ext}'
+    archive:
+      dir: true
+      file_name: doggo
+      ext:
+        windows: .zip
+        default: .tar.gz
+    status:
+      command: doggo --version
+
+  fd:
+    link: https://github.com/sharkdp/fd
+    description: A simple, fast and user-friendly alternative to 'find'
+    provider: github
+    github:
+      owner: sharkdp
+      repo: fd
+    arch:
+      amd64: x86_64
+      arm64: x86_64
+    os:
+      linux: linux-musl
+      windows: windows-gnu
+    asset:
+      pattern: '${repo_name}-*-${arch}-*-${os}${archive_ext}'
+    archive:
+      dir: true
+      ext:
+        windows: .zip
+        default: .tar.gz
+    status:
+      command: fd --version
+
+  fzf:
+    link: https://github.com/junegunn/fzf
+    description: A command-line fuzzy finder
+    provider: github
+    github:
+      owner: junegunn
+      repo: fzf
+    asset:
+      pattern: '${repo_name}-*-${os}_${arch}${archive_ext}'
+    archive:
+      dir: false
+      ext:
+        windows: .zip
+        darwin: .zip
+        default: .tar.gz
+    status:
+      command: fzf --version
+
+  lego:
+    link: https://github.com/go-acme/lego
+    description: A Let's Encrypt/ACME client
+    provider: github
+    github:
+      owner: go-acme
+      repo: lego
+    asset:
+      pattern: '${repo_name}_*_${os}_${arch}${archive_ext}'
+    archive:
+      dir: true
+      ext:
+        windows: .zip
+        default: .tar.gz
+    status:
+      command: lego --version
+
+  micro:
+    link: https://github.com/zyedidia/micro
+    description: A modern and intuitive terminal-based text editor
+    provider: github
+    github:
+      owner: zyedidia
+      repo: micro
+    arch:
+      amd64: "64"
+    os:
+      # Micro appends the bit-ness to the OS. This is a small hack to match that and the 'static' binaries.
+      linux: "linux64-static"
+      windows: "win64"
+      darwin: "macos-arm64"
+    asset:
+      # micro-2.0.11-linux64-static.tar.gz
+      # micro-2.0.11-osx.tar.gz
+      # micro-2.0.11-macos-arm64.tar.gz
+      # micro-2.0.11-win64.zip
+      pattern: '${repo_name}-*-${os}${archive_ext}'
+    archive:
+      dir: true
+      ext:
+        windows: .zip
+        darwin: .zip
+        default: .tar.gz
+    status:
+      command: micro --version
+
+  ouch:
+    link: https://github.com/ouch-org/ouch
+    description: The painless compression and decompression for your terminal
+    provider: github
+    github:
+      owner: ouch-org
+      repo: ouch
+    arch:
+      amd64: x86_64
+      arm64: aarch64
+    os:
+      linux: linux-musl
+      windows: windows-gnu
+    asset:
+      pattern: '${repo_name}-${arch}-*-${os}${archive_ext}'
+    archive:
+      dir: true
+      ext:
+        windows: .zip
+        default: .tar.gz
+    status:
+      command: ouch --version
+
+  peep:
+    link: https://github.com/ryochack/peep
+    description: The CLI text viewer tool that works like less command on small pane within the terminal window
+    provider: github
+    github:
+      owner: ryochack
+      repo: peep
+    arch:
+      amd64: x86_64
+      arm64: x86_64
+    os:
+      linux: linux-musl
+    asset:
+      pattern: '${repo_name}-*-${arch}-*-${os}${archive_ext}'
+    archive:
+      dir: false
+      ext:
+        default: .zip
+    status:
+      command: peep --version
+
+  rclone:
+    link: https://github.com/rclone/rclone
+    description: rsync for cloud storage
+    provider: github
+    github:
+      owner: rclone
+      repo: rclone
+    os:
+      darwin: osx
+    asset:
+      pattern: '${repo_name}-*-${os}-${arch}${archive_ext}'
+    archive:
+      dir: true
+      ext:
+        default: .zip
+    status:
+      command: rclone --version
+
+  rg:
+    link: https://github.com/BurntSushi/ripgrep
+    description: An enhanced grep
+    provider: github
+    github:
+      owner: BurntSushi
+      repo: ripgrep
+    arch:
+      amd64: x86_64
+      arm64: x86_64
+    os:
+      darwin: osx
+      linux: linux-musl
+      windows: windows-gnu
+    asset:
+      pattern: '${repo_name}-*-${arch}-*-${os}${archive_ext}'
+    archive:
+      dir: true
+      ext:
+        windows: .zip
+        default: .tar.gz
+    status:
+      command: rg --version
+
+  sops:
+    link: https://github.com/mozilla/sops
+    description: A simple and flexible tool for managing secrets
+    provider: github
+    github:
+      owner: mozilla
+      repo: sops
+    arch:
+      amd64: .amd64
+      arm64: .arm64
+    os:
+      darwin: osx
+      linux: linux
+      windows: ""
+    asset:
+      pattern: '${repo_name}-*${os}${arch}${exe_ext}'
+    status:
+      command: sops --version
+
+  starship:
+    link: https://github.com/starship/starship
+    description: The minimal, blazing-fast, and infinitely customizable prompt for any shell
+    provider: github
+    github:
+      owner: starship
+      repo: starship
+    arch:
+      amd64: x86_64
+      arm64: aarch64
+    os:
+      linux: linux-musl
+      windows: windows-msvc
+    asset:
+      pattern: '${repo_name}-${arch}-*-${os}${archive_ext}'
+    archive:
+      dir: false
+      ext:
+        windows: .zip
+        default: .tar.gz
+    status:
+      command: starship --version | coreutils head -1
