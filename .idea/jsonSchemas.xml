@@ -3,6 +3,40 @@
   <component name="JsonSchemaMappingsProjectConfiguration">
     <state>
       <map>
+        <entry key="JSON Schema version 7">
+          <value>
+            <SchemaInfo>
+              <option name="name" value="JSON Schema version 7" />
+              <option name="relativePathToSchema" value="http://json-schema.org/draft-07/schema" />
+              <option name="schemaVersion" value="JSON Schema version 7" />
+              <option name="applicationDefined" value="true" />
+              <option name="patterns">
+                <list>
+                  <Item>
+                    <option name="path" value="install/packages/schema.yaml" />
+                  </Item>
+                </list>
+              </option>
+            </SchemaInfo>
+          </value>
+        </entry>
+        <entry key="Package YAML Schema">
+          <value>
+            <SchemaInfo>
+              <option name="generatedName" value="New Schema" />
+              <option name="name" value="Package YAML Schema" />
+              <option name="relativePathToSchema" value="install/packages/schema.yaml" />
+              <option name="schemaVersion" value="JSON Schema version 7" />
+              <option name="patterns">
+                <list>
+                  <Item>
+                    <option name="path" value="install/packages/packages.yaml" />
+                  </Item>
+                </list>
+              </option>
+            </SchemaInfo>
+          </value>
+        </entry>
         <entry key="Taskfile YAML Schema">
           <value>
             <SchemaInfo>
@@ -15,13 +49,13 @@
                     <option name="path" value="Download-Tasks.yaml" />
                   </Item>
                   <Item>
+                    <option name="path" value="filesystem/Filesystem-Tasks.yaml" />
+                  </Item>
+                  <Item>
                     <option name="path" value="Install-Tasks.yaml" />
                   </Item>
                   <Item>
                     <option name="path" value="install/Install-Tasks.yaml" />
-                  </Item>
-                  <Item>
-                    <option name="path" value="trmm/TRMM-Tasks.yaml" />
                   </Item>
                   <Item>
                     <option name="path" value="json/JSON-Tasks.yaml" />
@@ -30,7 +64,7 @@
                     <option name="path" value="system/System-Tasks.yaml" />
                   </Item>
                   <Item>
-                    <option name="path" value="filesystem/Filesystem-Tasks.yaml" />
+                    <option name="path" value="trmm/TRMM-Tasks.yaml" />
                   </Item>
                 </list>
               </option>

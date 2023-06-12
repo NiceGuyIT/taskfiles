@@ -6,6 +6,7 @@ These are the list of packages that can be installed.
 - [yq][] - Part of the core install
 - [xh][] - Part of the core install
 - [coreutils][] - Part of the core install
+- [ouch][] - Part of the core install
 - [age][]
 - [age-keygen][]
 - [alacritty][] - Requires [Microsoft Visual C++ Redistributable][] installed: `choco install vcredist140`
@@ -32,6 +33,7 @@ These are the list of packages that can be installed.
 [fd]: https://github.com/sharkdp/fd
 [fzf]: https://github.com/junegunn/fzf
 [lego]: https://github.com/go-acme/lego
+[ouch]: https://github.com/ouch-org/ouch
 [rclone]: https://github.com/rclone/rclone
 [ripgrep]: https://github.com/BurntSushi/ripgrep
 [sops]: https://github.com/mozilla/sops
