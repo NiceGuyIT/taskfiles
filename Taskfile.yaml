@@ -1,25 +1,63 @@
 ---
 version: "3"
 
-env:
+# Global variables
+vars:
+
+  # FS_PATH_SEP is the OS-specific separator for filesystem paths.
+  FS_PATH_SEP: '{{ if eq OS "windows" }}\{{ else }}/{{ end }}'
+
+  # ENV_PATH_SEP is the OS-specific separator for the PATH environmental variable.
+  ENV_PATH_SEP: '{{ if eq OS "windows" }};{{ else }}:{{ end }}'
+
+  # HAS_SYSTEM_PERMISSION determines if the user has system or admin privileges. Returns "true" if the task is run as
+  # a root on \*nix or a user that is a member of the administrator's group on Windows.
+  # Use "whoami" instead of "net session" to determine permissions.
+  # The full path is used to prevent conflicts with "/usr/bin/whoami" when using bash as the login shell for ssh.
+  HAS_SYSTEM_PERMISSION:
+    sh: |
+      {{- if eq OS "windows" -}}
+        whoami="$(C:/Windows/System32/whoami.exe /groups)"
+        if [[ "$whoami" == *"Mandatory Label\\High Mandatory Level"* ]]; then
+          echo 'true'
+        else
+          echo ''
+        fi
+      {{- else -}}
+        echo '{{ if eq .USER "root" }}true{{ end }}'
+      {{- end -}}
+
+  # BIN_DIR is the directory to hold the binaries. If run as root/administrator, the system directory is used.
+  # Otherwise, the user's bin directory is used.
+  # Task treats environmental variables as case-sensitive while Windows does not.
+  # Pass the path to osClean to make sure backslashes are handled on Windows.
   BIN_DIR:
-    # BIN_DIR is the directory to hold the binaries. If run as root/administrator, the system directory is used.
-    # Otherwise, the user's bin directory is used.
-    # Task treats environmental variables as case-sensitive while Windows does not.
     sh: |
       if [ -z $TASKFILE_BIN_DIR ]; then
         {{ if eq OS "windows" -}}
-          if net session >/dev/null 2>&1; then
-            echo '{{ osClean (print .ProgramData "/taskfiles/bin") }}'
-          else
-            echo '{{ osClean (print .USERPROFILE "/bin") }}'
-          fi
+          {{- if .HAS_SYSTEM_PERMISSION -}}
+            {{- if .ProgramData -}}
+              echo '{{ print .ProgramData "/taskfiles/bin" | osClean -}}'
+            {{- else if .PROGRAMDATA -}}
+              echo '{{ print .PROGRAMDATA "/taskfiles/bin" | osClean -}}'
+            {{- else -}}
+              echo ''
+            {{- end -}}
+          {{- else -}}
+            echo '{{ if .USERPROFILE }}{{ print .USERPROFILE "/bin" | osClean -}}{{ end }}'
+          {{- end -}}
         {{- else -}}
-          echo '{{ if eq .USER "root" }}/usr/local/bin{{ else }}{{ .HOME }}/bin{{ end }}'
+          echo "{{ if .HAS_SYSTEM_PERMISSION }}/usr/local/bin{{ else }}{{.HOME}}/bin{{ end }}"
         {{- end }}
       else
         echo $TASKFILE_BIN_DIR
       fi
+
+  # Append BIN_DIR to the PATH
+  # Note: Since existing env vars can't be overridden, the PATH variable is used to set the PATH env var in each cmd.
+  PATH:
+    sh: |
+      echo "${PATH}{{.ENV_PATH_SEP}}{{.BIN_DIR}}"
 
 # Include all the tasks at the top level, so they can include tasks in other files. If the tasks are included in the
 # sub-files, the tasks are repeated in the 'task --list' output. Including all tasks at the top level prevents this
@@ -43,6 +81,9 @@ includes:
     optional: true
   system:
     taskfile: system/Taskfile.yaml
+    optional: true
+  testing:
+    taskfile: testing/Taskfile.yaml
     optional: true
   trmm:
     taskfile: trmm/Taskfile.yaml

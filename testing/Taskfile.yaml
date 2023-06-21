@@ -1,0 +1,361 @@
+---
+version: '3'
+
+# These tasks test various scenarios to understand how Task works. They may not be working because the corresponding
+# global variables and/or tasks do not exist.
+tasks:
+
+  task-platforms-cmds-list:
+    desc: Tests Tasks' platform parameter
+    summary: |
+      This task will test Task's platform parameter.
+    cmds:
+      - cmd: |
+          echo This will run in Linux and macOS
+        platforms:
+          - linux
+          - darwin
+      - cmd: |
+          echo This will run in Windows
+        platforms:
+          - windows
+
+  task-platforms-cmds-braces:
+    desc: Tests Tasks' platform parameter
+    summary: |
+      This task will test Task's platform parameter.
+    cmds:
+      - cmd: |
+          echo This will run in Linux and macOS
+        platforms: [linux, darwin]
+      - cmd: |
+          echo This will run in Windows
+        platforms: [windows]
+
+  task-platforms-task-list:
+    desc: Tests Tasks' platform parameter
+    summary: |
+      This task will test Task's platform parameter.
+    platforms:
+      - windows
+    cmds:
+      - cmd: |
+          echo This will run in Windows
+
+  task-platforms-task-braces:
+    desc: Tests Tasks' platform parameter
+    summary: |
+      This task will test Task's platform parameter.
+    platforms: [linux, darwin]
+    cmds:
+      - cmd: |
+          echo This will run in Linux and macOS
+
+  get-env-var-inheritance:
+    desc: Tests the setting of an env var
+    summary: |
+      This task will test the setting of an environmental variable.
+    # Env vars are not dynamic but can reference variables {{.VAR}}. ENV1 and ENV5 will be set
+    env:
+      ENV1: 'env1'
+      ENV2: '{{.ENV1}}'
+      ENV3:
+        sh: |
+          echo ${ENV1}
+      ENV4:
+        sh: |
+          echo {{.ENV1}}
+      ENV5: '{{.VAR1}}'
+    # Variables are dynamic and set in the order provided.
+    # Variables are referenced as {{.VAR}}
+    # Environmental variables are referenced as $ENV
+    # Previous vars can be referenced as {{.VAR}}
+    # Previous env vars cannot be referenced, even if used as $ENV.
+    vars:
+      VAR0: '{{.VAR3}}'
+      VAR1: 'var1'
+      VAR2: '{{.VAR1}}'
+      VAR3:
+        sh: |
+          echo {{.VAR2}}
+      VAR4:
+        sh: |
+          echo $VAR2
+      VAR5:
+        sh: |
+          echo $ENV1
+    cmds:
+      - cmd: |
+          echo "Env ENV1: $ENV1"
+          echo "Env ENV2: $ENV2"
+          echo "Env ENV3: $ENV3"
+          echo "Env ENV4: $ENV4"
+          echo "Env ENV5: $ENV5"
+      - cmd: |
+          echo "Variable VAR0: {{.VAR0}}"
+          echo "Variable VAR1: {{.VAR1}}"
+          echo "Variable VAR2: {{.VAR2}}"
+          echo "Variable VAR3: {{.VAR3}}"
+          echo "Variable VAR4: {{.VAR4}}"
+          echo "Variable VAR5: {{.VAR5}}"
+
+  get-env-var-precedent:
+    desc: Tests the precedent of env and var
+    summary: |
+      This task will test the precedent or priority of environmental variables and regular variables.
+    # Env vars are not dynamic. Only ENV1 will be set
+    env:
+      ENV1: 'env1'
+      ENV2: '{{.VAR1}}'
+    # Variables are dynamic and set in the order provided.
+    vars:
+      VAR1: 'var1'
+      VAR2:
+        sh: |
+          echo {{.ENV1}}
+    cmds:
+      - cmd: |
+          echo "Env ENV1: $ENV1"
+          echo "Env ENV2: $ENV2"
+      - cmd: |
+          echo "Variable VAR1: {{.VAR1}}"
+          echo "Variable VAR2: {{.VAR2}}"
+
+  get-path:
+    desc: Gets the current PATH env var
+    summary: |
+      This task will get the current PATH.
+    env:
+      PATH: '{{.PATH}}'
+    vars:
+      PATH: '{{.PATH}}'
+    cmds:
+      - cmd: |
+          echo "Variable PATH: $PATH"
+      - cmd: |
+          echo "Template PATH: {{.PATH}}"
+
+  set-path:
+    desc: Sets the current PATH env var
+    summary: |
+      This task will test the setting of the set the current PATH.
+    vars:
+      PATH: '{{.PATH | default "Undefined" }}'
+    cmds:
+      - cmd: |
+          export PATH="{{.PATH}}"
+          echo "New PATH: $PATH"
+
+  modify-existing-env-var:
+    desc: Test if an existing env var can be modified
+    summary: |
+      This task will test if an existing environmental variable can be modified.
+    env:
+      PATH: 'New Path'
+    cmds:
+      - cmd: |
+          echo "The existing PATH will be output, not 'New Path'"
+          echo "Env: $PATH"
+
+  parent-child-var:
+    desc: Tests the parent/child relationship
+    summary: |
+      This task will test the parent/child relationship of variables.
+    env:
+      PARENT_ENV: '{{.PARENT_ENV | default "Child env"}}'
+    vars:
+      PARENT_VAR: '{{.PARENT_VAR | default "Child var"}}'
+    cmds:
+      - cmd: |
+          echo "Env PARENT_ENV: $PARENT_ENV"
+          echo "Env PARENT_VAR: $PARENT_VAR"
+      - cmd: |
+          echo "Variable PARENT_ENV: {{.PARENT_ENV}}"
+          echo "Variable PARENT_VAR: {{.PARENT_VAR}}"
+
+  join-path:
+    desc: Tests Tasks' ability to join paths and use it to reference a file
+    summary: |
+      This task will test Task's ability to join paths such that it can be referenced in a command.
+    platforms: [windows]
+    env:
+      BIN_PATH: '{{.BIN_PATH}}'
+    vars:
+      PATH2: '{{.PATH2}}'
+    ignore_error: true
+    cmds:
+      # Result:
+      #   Single quotes test: 'C:\Program Files (x86)/Mozilla Maintenance Service\logs/maintenanceservice.log'
+      #   file: C:\Program Files (x86)/Mozilla Maintenance Service\logs/maintenanceservice.log
+      #   File test: File exists
+      - cmd: |
+          echo "Single quotes test: '{{.BIN_PATH}}/{{.PATH2}}/maintenanceservice.log'"
+          file='{{.BIN_PATH}}/{{.PATH2}}/maintenanceservice.log'
+          echo "file: $file"
+          [ -f "$file" ] && echo "File test: File exists"
+      # Result
+      #   Double quotes test: "C:\Program Files (x86)/Mozilla Maintenance Service\logs/maintenanceservice.log"
+      #   file: C:\Program Files (x86)/Mozilla Maintenance Service\logs/maintenanceservice.log
+      #   File test: File exists
+      - cmd: |
+          echo "Double quotes test: \"{{.BIN_PATH}}/{{.PATH2}}/maintenanceservice.log\""
+          file="{{.BIN_PATH}}/{{.PATH2}}/maintenanceservice.log"
+          echo "file: $file"
+          [ -f "$file" ] && echo "File test: File exists"
+      # Result:
+      #   fromSlash test: C:\Program Files (x86)\Mozilla Maintenance Service\logs\maintenanceservice.log
+      #   file: C:\Program Files (x86)\Mozilla Maintenance Service\logs\maintenanceservice.log
+      #   File test: File exists
+      - cmd: |
+          echo "fromSlash test: {{ print .BIN_PATH "/" .PATH2 "/maintenanceservice.log" | fromSlash }}"
+          file="{{ print .BIN_PATH "/" .PATH2 "/maintenanceservice.log" | fromSlash }}"
+          echo "file: $file"
+          [ -f "$file" ] && echo "File test: File exists"
+      # Result:
+      #   osClean test: C:\Program Files (x86)\Mozilla Maintenance Service\logs\maintenanceservice.log
+      #   file: C:\Program Files (x86)\Mozilla Maintenance Service\logs\maintenanceservice.log
+      #   File test: File exists
+      - cmd: |
+          echo "osClean test: {{ print .BIN_PATH "/" .PATH2 "/maintenanceservice.log" | osClean }}"
+          file="{{ print .BIN_PATH "/" .PATH2 "/maintenanceservice.log" | osClean }}"
+          echo "file: $file"
+          [ -f "$file" ] && echo "File test: File exists"
+      # Result:
+      #   osClean quote test: C:\Program Files (x86)\Mozilla Maintenance Service\logs\maintenanceservice.log
+      #   file: C:\Program Files (x86)\Mozilla Maintenance Service\logs\maintenanceservice.log
+      #   File test: File exists
+      - cmd: |
+          echo osClean quote test: {{ print .BIN_PATH "/" .PATH2 "/maintenanceservice.log" | osClean | quote }}
+          file={{ print .BIN_PATH "/" .PATH2 "/maintenanceservice.log" | osClean | quote }}
+          echo "file: $file"
+          [ -f "$file" ] && echo "File test: File exists"
+      # Result:
+      #   File: C:\\Program Files (x86)\\Mozilla Maintenance Service\\logs\\maintenanceservice.log
+      - cmd: |
+          echo PowerShell osClean quote test: {{ print .BIN_PATH "/" .PATH2 "/maintenanceservice.log" | osClean | quote }}
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
+            $file={{ print .BIN_PATH "/" .PATH2 "/maintenanceservice.log" | osClean | quote }}
+            if (Test-Path -Path $file) {
+              Write-Output "File: $file"
+              Get-Item $file
+            } else {
+              Write-Output "File does not exist: $file"
+            }
+
+          EOT
+      # Result:
+      #   File: C:\Program Files (x86)\Mozilla Maintenance Service\logs\maintenanceservice.log
+      - cmd: |
+          echo PowerShell osClean test: "{{ print .BIN_PATH "/" .PATH2 "/maintenanceservice.log" | osClean }}"
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
+            $file="{{ print .BIN_PATH "/" .PATH2 "/maintenanceservice.log" | osClean }}"
+            if (Test-Path -Path $file) {
+              Write-Output "File: $file"
+              Get-Item $file
+            } else {
+              Write-Output "File does not exist: $file"
+            }
+
+          EOT
+      # Result:
+      #   File: C:\Program Files (x86)\Mozilla Maintenance Service\logs\maintenanceservice.log
+      - cmd: |
+          echo PowerShell osClean test: "{{ print .BIN_PATH .FS_PATH_SEP .PATH2 .FS_PATH_SEP "maintenanceservice.log" | osClean }}"
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
+            $file="{{ print .BIN_PATH .FS_PATH_SEP .PATH2 .FS_PATH_SEP "maintenanceservice.log" | osClean }}"
+            if (Test-Path -Path $file) {
+              Write-Output "File: $file"
+              Get-Item $file
+            } else {
+              Write-Output "File does not exist: $file"
+            }
+
+          EOT
+
+  get-bin-dir:
+    desc: Gets the BIN_DIR var
+    summary: |
+      This task will get the BIN_DIR variable.
+    vars:
+      BIN_DIR: '{{.BIN_DIR}}'
+      COREUTILS: c:\ProgramData\taskfiles\bin\coreutils.exe
+    cmds:
+      - cmd: |
+          echo "BIN_DIR (get-bin-dir): {{.BIN_DIR}}"
+          echo 'ProgramData: {{ print .ProgramData }}'
+          "{{ osClean .COREUTILS }}" printenv
+          task --verbose system:in-path CHECK_PATH="C:\\ProgramData\\taskfiles\\bin"
+
+  get-bin-dir2:
+    desc: Gets the BIN_DIR var
+    summary: |
+      This task will get the BIN_DIR variable.
+    vars:
+      BIN_DIR: '{{.BIN_DIR}}'
+      COREUTILS: c:\ProgramData\taskfiles\bin\coreutils.exe
+    cmds:
+      # c:\ProgramData\taskfiles\bin\coreutils.exe printenv
+      - cmd: |
+          echo "BIN_DIR (get-bin-dir2): {{.BIN_DIR}}"
+          echo 'ProgramData: {{ print .ProgramData }}'
+          "{{ osClean .COREUTILS }}" printenv
+          task --verbose testing:get-bin-dir CHECK_PATH="C:\\ProgramData\\taskfiles\\bin"
+
+  print-env:
+    desc: Prints the environmental variables
+    summary: |
+      This task will print the environmental variables using coreutils printenv.
+    vars:
+      COREUTILS: c:\ProgramData\taskfiles\bin\coreutils.exe
+    cmds:
+      - cmd: |
+          "{{ osClean .COREUTILS }}" printenv
+
+  print-powershell-env:
+    desc: Prints the environmental variables using PowerShell
+    summary: |
+      This task will print the environmental variables using PowerShell's Get-ChildItem.
+    env:
+      PROGRAMDATA: '{{.PROGRAMDATA | default "non-existent"}}'
+    vars:
+      PROGRAMDATA_VAR: '{{.PROGRAMDATA_VAR | default "non-existent"}}'
+    cmds:
+      - cmd: |
+          echo 'ProgramData: "{{.ProgramData}}"; "$ProgramData"'
+          echo 'PROGRAMDATA: "{{.PROGRAMDATA}}"; "$PROGRAMDATA"'
+          echo 'PROGRAMDATA_VAR: {{.PROGRAMDATA_VAR}}'
+      - cmd: |
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
+            Write-Output "ProgramData: $ENV:ProgramData"
+            Write-Output "PROGRAMDATA: $ENV:PROGRAMDATA"
+
+          EOT
+        platforms:
+          - windows
+
+  print-task-env:
+    desc: Prints the environmental variables using Task
+    summary: |
+      This task will print the environmental variables by calling another task.
+    env:
+      PROGRAMDATA: '{{.PROGRAMDATA | default "non-existent"}}'
+    vars:
+      PROGRAMDATA_VAR:
+        sh: |
+          echo $PROGRAMDATA
+    cmds:
+      - cmd: |
+          echo "\$ProgramData: \"$ProgramData\""
+          echo "\$PROGRAMDATA: \"$PROGRAMDATA\""
+          echo '{{ print `{{.ProgramData}}` }}: "{{.ProgramData}}"'
+          echo '{{ print `{{.PROGRAMDATA}}` }}: "{{.PROGRAMDATA}}"'
+          echo 'PROGRAMDATA_VAR: {{.PROGRAMDATA_VAR}}'
+          task testing:print-powershell-env
+
+  has-system-permission:
+    desc: Checks if the user has system privileges
+    summary: |
+      This task will check if the user has system or administrative privileges.
+    cmds:
+      - cmd: |
+          echo '{{ print `{{.HAS_SYSTEM_PERMISSION}}` }}: "{{.HAS_SYSTEM_PERMISSION}}"'

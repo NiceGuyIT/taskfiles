@@ -5,10 +5,6 @@ tasks:
 
   all:
     desc: Initialize (download) the necessary utilities.
-    preconditions:
-      - sh: command -v curl
-        msg: |
-          curl is required to download files. Please install 'curl' and try again.
     cmds:
       - task: create-bin-dir
         vars: {
@@ -17,15 +13,16 @@ tasks:
       - task: dl-yq
       - task: dl-task
       - task: dl-xh
-      - task: dl-coreutils
       - task: dl-ouch
+      - task: dl-coreutils
     status:
       - task --silent init:create-bin-dir
       - task --silent init:dl-yq
       - task --silent init:dl-task
       - task --silent init:dl-xh
-      - task --silent init:dl-coreutils
       - task --silent init:dl-ouch
+      - task --silent init:dl-coreutils
+      - task --silent init:add-bin-dir-to-path
 
   create-bin-dir:
     desc: Create the bin directory
@@ -33,65 +30,105 @@ tasks:
       - sh: '[ ! -z {{ quote .BIN_DIR }} ]'
         msg: '.BIN_DIR is not defined'
     cmds:
-      - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
-      - cmd: 'echo "BIN_DIR_ADMIN: {{.BIN_DIR_ADMIN}}"'
+      # - cmd: 'echo "PATH: {{.PATH}}"'
+      # - cmd: 'echo "BIN_DIR: {{.BIN_DIR}}"'
       - cmd: |
-          mkdir --parents {{ osClean .BIN_DIR }}
-        platforms: [linux, darwin]
-        # FIXME: Check if BIN_DIR is already in the path for the user
+          {{ if ne OS "windows" }}
+            mkdir --parents "{{.BIN_DIR}}"
+          {{ end }}
       - cmd: |
-          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
-            if (-not (Test-Path -Path "{{ osClean .BIN_DIR }}")) {
-              New-Item -Path "{{ osClean .BIN_DIR }}" -ItemType Directory
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
+            if (-not (Test-Path -Path "{{.BIN_DIR}}")) {
+              New-Item -Path "{{.BIN_DIR}}" -ItemType Directory | Out-Null
             }
-            # Disable this until checks are in place if the path already exists in ENV
-            #$value = Get-ItemProperty -Path HKCU:\Environment -Name Path
-            #$newpath = $value.Path += "{{ (print ";" .BIN_DIR) }}"
-            #Set-ItemProperty -Path HKCU:\Environment -Name Path -Value $newpath
-          '
+
+          EOT
         platforms: [windows]
     status:
-      - test -d {{ osClean .BIN_DIR }}
+      - test -d "{{.BIN_DIR}}"
+
+  # Default system PATH:
+  # C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\ProgramData\chocolatey\bin
+  # User PATH:
+  # C:\Users\dev\AppData\Local\Microsoft\WindowsApps
+  add-bin-dir-to-path:
+    desc: Add BIN_DIR to the PATH env var
+    summary: |
+      This task will add BIN_DIR to the system or user path on Windows. macOS and Linux use "/usr/local/bin" for the
+      system path, and "$HOME/bin" for the user path. Both of these are included in $PATH by default. If the user
+      specifies a different BIN_DIR, it's up to them to add it to the PATH.
+    preconditions:
+      - sh: '[ ! -z {{ quote .BIN_DIR }} ]'
+        msg: '.BIN_DIR is not defined'
+    vars:
+      ENV_PATH_USER: 'HKCU:\Environment\Path'
+      ENV_PATH_SYSTEM: 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment\Path'
+      CURRENT_PATH:
+        sh: |
+          {{ if .HAS_SYSTEM_PERMISSION }}
+            task --silent system:get-win-registry REG_PATH="{{.ENV_PATH_SYSTEM}}"
+          {{ else }}
+            task --silent system:get-win-registry REG_PATH="{{.ENV_PATH_USER}}"
+          {{ end }}
+      PATH_EXISTS:
+        # Export the PATH to make sure we are testing only the user or system PATH.
+        sh: |
+          task=$(command -v task.exe)
+          export PATH="{{.CURRENT_PATH}}"
+          "$task" --silent system:in-path CHECK_PATH="{{.BIN_DIR}}"
+    cmds:
+      # FIXME: Check if BIN_DIR is already in the path for the user
+      - cmd: |
+          {{ if not .PATH_EXISTS }}
+            {{ if .HAS_SYSTEM_PERMISSION }}
+              task --verbose system:set-win-registry REG_PATH="{{.ENV_PATH_SYSTEM}}" REG_VALUE="{{.CURRENT_PATH}}{{.ENV_PATH_SEP}}{{.BIN_DIR}}"
+            {{ else }}
+              task --verbose system:set-win-registry REG_PATH="{{.ENV_PATH_USER}}" REG_VALUE="{{.CURRENT_PATH}}{{.ENV_PATH_SEP}}{{.BIN_DIR}}"
+            {{ end }}
+          {{ else }}
+            echo "Path already exists. No action taken."
+          {{ end }}
+        platforms: [windows]
 
   dl-yq:
     # https://github.com/mikefarah/yq
     desc: Download 'yq', a portable command-line YAML, JSON, XML, CSV, TOML and properties processor
     deps:
       - create-bin-dir
+    preconditions:
+      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
+        msg: |
+          curl is required to download files. Please install 'curl' and try again.
     vars:
       # Order matters!
       NAME: yq
       OWNER: mikefarah
       REPO: '{{.OWNER}}/{{.NAME}}'
       FILE_NAME: '{{.NAME}}{{exeExt}}'
-      BIN_NAME: '{{.BIN_DIR}}{{ fromSlash "/" }}{{.FILE_NAME}}'
+      BIN_NAME: '{{ print .BIN_DIR .FS_PATH_SEP .FILE_NAME | osClean }}'
       ASSET_PATTERN: '{{.NAME}}_{{OS}}_{{ARCH}}{{exeExt}}'
       REPO_URL: 'https://github.com/{{.REPO}}/releases/latest/download/{{.ASSET_PATTERN}}'
-    preconditions:
-      - sh: command -v curl
-        msg: |
-          curl is required to download files. Please install 'curl' and try again.
     cmds:
-      - curl --silent --location --output {{ squote .BIN_NAME }} {{ squote .REPO_URL }}
-      - '{{ if ne OS "windows"}}chmod a+x {{.BIN_NAME}}{{ end }}'
+      - cmd: |
+          {{ if ne OS "windows" }}
+            curl --silent --location --output "{{.BIN_NAME}}" {{ squote .REPO_URL }}
+            chmod a+x "{{.BIN_NAME}}"
+          {{ end }}
+      - cmd: |
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
+            $ProgressPreference = "SilentlyContinue"
+            Invoke-WebRequest -URI {{ squote .REPO_URL }} -OutFile "{{.BIN_NAME}}"
+
+          EOT
+        platforms: [windows]
     status:
-      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
+      - '"{{ print .BIN_DIR .FS_PATH_SEP .NAME exeExt | osClean }}" --version'
 
   dl-task:
     # https://github.com/go-task/task
     desc: Download 'task', a task runner / simpler Make alternative written in Go
     deps:
       - create-bin-dir
-    vars:
-      # Order matters!
-      NAME: task
-      OWNER: go-task
-      REPO: '{{.OWNER}}/{{.NAME}}'
-      FILE_NAME: '{{.NAME}}{{exeExt}}'
-      BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
-      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
-      ASSET_PATTERN: '{{.NAME}}_{{OS}}_{{ARCH}}{{.COMPRESS_EXT}}'
-      REPO_URL: 'https://github.com/{{.REPO}}/releases/latest/download/{{.ASSET_PATTERN}}'
     preconditions:
       - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
         msg: |
@@ -102,6 +139,16 @@ tasks:
       - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
         msg: |
           gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
+    vars:
+      # Order matters!
+      NAME: task
+      OWNER: go-task
+      REPO: '{{.OWNER}}/{{.NAME}}'
+      FILE_NAME: '{{.NAME}}{{exeExt}}'
+      BIN_NAME: '{{ print .BIN_DIR .FS_PATH_SEP .FILE_NAME | osClean }}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+      ASSET_PATTERN: '{{.NAME}}_{{OS}}_{{ARCH}}{{.COMPRESS_EXT}}'
+      REPO_URL: 'https://github.com/{{.REPO}}/releases/latest/download/{{.ASSET_PATTERN}}'
     cmds:
       - cmd: |
           curl --location --output - {{ squote .REPO_URL }} |
@@ -109,20 +156,21 @@ tasks:
           chmod a+x {{.BIN_NAME}}
         platforms: [linux, darwin]
       - cmd: |
-          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
             $tmp_file = New-TemporaryFile
             Remove-Item -Path $tmp_file
             $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
             $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
             $ProgressPreference = "SilentlyContinue"
-            Invoke-WebRequest -URI {{ quote .REPO_URL }} -OutFile $zip_file
+            Invoke-WebRequest -URI {{ squote .REPO_URL }} -OutFile $zip_file
             Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-            Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath {{ quote .FILE_NAME }}) -Destination {{.BIN_DIR}}
+            Copy-Item -Path $(Join-Path -Path $tmp_dir -ChildPath {{ print .FILE_NAME | osClean }}) -Destination {{ print .BIN_DIR | osClean}}
             Remove-Item -Path $tmp_dir -Recurse
-          '
+
+          EOT
         platforms: [windows]
     status:
-      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
+      - '"{{ print .BIN_DIR .FS_PATH_SEP .NAME exeExt | osClean }}" --version'
 
   dl-xh:
     # https://github.com/ducaale/xh
@@ -130,12 +178,22 @@ tasks:
     deps:
       - create-bin-dir
       - dl-yq
+    preconditions:
+      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
+        msg: |
+          curl is required to download files. Please install 'curl' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
+        msg: |
+          tar is required to extract files from archives. Please install 'tar' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
+        msg: |
+          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
     vars:
       NAME: xh
       OWNER: ducaale
       REPO: '{{.OWNER}}/{{.NAME}}'
       FILE_NAME: '{{.NAME}}{{exeExt}}'
-      BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
+      BIN_NAME: '{{ print .BIN_DIR .FS_PATH_SEP .FILE_NAME | osClean }}'
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
       REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
       # Some packages use x86_64 instead of amd64
@@ -148,13 +206,58 @@ tasks:
       # FIXME: minute.
       DOWNLOAD_URL:
         sh: |
-          curl --silent --location --output - '{{.REPO_URL}}' |
-          yq --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .browser_download_url'
+          {{ if ne OS "windows" }}
+            curl --silent --location --output - {{ squote .REPO_URL }} |
+          {{ else }}
+            powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT' |
+              $ProgressPreference = "SilentlyContinue"
+              Invoke-WebRequest -URI {{ squote .REPO_URL }} | Select-Object -Expand Content
+
+          EOT
+          {{ end -}}
+          "{{ print .BIN_DIR .FS_PATH_SEP "yq" exeExt | osClean }}" --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .browser_download_url'
       PACKAGE_NAME:
         sh: |
-          curl --silent --location --output - '{{.REPO_URL}}' |
-          yq --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .name'
+          {{ if ne OS "windows" }}
+            curl --silent --location --output - {{ squote .REPO_URL }} |
+          {{ else }}
+            powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT' |
+              $ProgressPreference = "SilentlyContinue"
+              Invoke-WebRequest -URI {{ squote .REPO_URL }} | Select-Object -Expand Content
+
+          EOT
+          {{ end -}}
+          "{{ print .BIN_DIR .FS_PATH_SEP "yq" exeExt | osClean }}" --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .name'
       PACKAGE_DIR: '{{ trimSuffix .COMPRESS_EXT .PACKAGE_NAME }}'
+    cmds:
+      - cmd: |
+          curl --silent --location --output - {{ squote .DOWNLOAD_URL }} |
+          tar --directory {{ squote .BIN_DIR }} --strip-components 1 -zxf - {{ squote (print .PACKAGE_DIR "/" .FILE_NAME) }}
+          chmod a+x {{ squote .BIN_NAME}}
+        platforms: [linux, darwin]
+      - cmd: |
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
+            $tmp_file = New-TemporaryFile
+            Remove-Item -Path $tmp_file
+            $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
+            $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
+            $ProgressPreference = "SilentlyContinue"
+            Invoke-WebRequest -URI {{ quote .DOWNLOAD_URL }} -OutFile $zip_file
+            Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
+            $bin_file = Join-Path -Path $tmp_dir -ChildPath {{ print .PACKAGE_DIR | osClean }} | Join-Path -ChildPath {{ print .FILE_NAME | osClean }}
+            Copy-Item -Path $bin_file -Destination {{ print .BIN_DIR | osClean }}
+            Remove-Item -Path $tmp_dir -Recurse
+
+          EOT
+        platforms: [windows]
+    status:
+      - '"{{ print .BIN_DIR .FS_PATH_SEP .NAME exeExt | osClean }}" --version'
+
+  dl-ouch:
+    # https://github.com/ouch-org/ouch
+    desc: Install 'ouch', painless compression and decompression for your terminal
+    deps:
+      - create-bin-dir
     preconditions:
       - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
         msg: |
@@ -165,14 +268,39 @@ tasks:
       - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
         msg: |
           gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
+    vars:
+      # Order matters!
+      NAME: ouch
+      OWNER: ouch-org
+      REPO: '{{.OWNER}}/{{.NAME}}'
+      FILE_NAME: '{{.NAME}}{{exeExt}}'
+      BIN_NAME: '{{ print .BIN_DIR .FS_PATH_SEP .FILE_NAME | osClean }}'
+      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
+      ARCH: '{{ if or (eq ARCH "amd64") (eq ARCH "arm64") }}x86_64{{ else }}{{ARCH}}{{ end }}'
+      ASSET_PATTERN: '{{.NAME}}-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ else if eq OS "windows" }}-gnu{{ end }}{{.COMPRESS_EXT}}'
+      REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
+      # FIXME: The dynamic variables are executed before determining the status, resulting in 2 unauthenticated calls
+      # FIXME: to the GitHub API. This should be fixed.
+      # FIXME: More importantly, tasks that depend on 'xh' will also result in 2 API calls.
+      # FIXME: If many tasks are run concurrently, it's possible to exceed the API limits and get locked out for a
+      # FIXME: minute.
+      DOWNLOAD_URL:
+        sh: |
+          "{{ print .BIN_DIR .FS_PATH_SEP "xh" exeExt | osClean }}" --follow --body GET {{ squote .REPO_URL }} |
+          "{{ print .BIN_DIR .FS_PATH_SEP "yq" exeExt | osClean }}" --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .browser_download_url'
+      PACKAGE_NAME:
+        sh: |
+          "{{ print .BIN_DIR .FS_PATH_SEP "xh" exeExt | osClean }}" --follow --body GET {{ squote .REPO_URL }} |
+          "{{ print .BIN_DIR .FS_PATH_SEP "yq" exeExt | osClean }}" --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .name'
+      PACKAGE_DIR: '{{ trimSuffix .COMPRESS_EXT .PACKAGE_NAME }}'
     cmds:
       - cmd: |
-          curl --silent --location --output - {{ squote .DOWNLOAD_URL }} |
-          tar --directory {{ squote .BIN_DIR }} --strip-components 1 -zxf - {{ squote (print .PACKAGE_DIR "/" .FILE_NAME) }}
-          chmod a+x {{ squote .BIN_NAME}}
+          "{{ print .BIN_DIR .FS_PATH_SEP "xh" exeExt | osClean }}" --follow --body {{ squote .DOWNLOAD_URL }} |
+          tar --directory "{{.BIN_DIR}}" --strip-components 1 -zxf - '{{ print .PACKAGE_DIR "/" .FILE_NAME | osClean }}'
+          chmod a+x "{{.BIN_NAME}}"
         platforms: [linux, darwin]
       - cmd: |
-          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
             $tmp_file = New-TemporaryFile
             Remove-Item -Path $tmp_file
             $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
@@ -180,26 +308,36 @@ tasks:
             $ProgressPreference = "SilentlyContinue"
             Invoke-WebRequest -URI {{ quote .DOWNLOAD_URL }} -OutFile $zip_file
             Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-            $bin_file = Join-Path -Path $tmp_dir -ChildPath {{ quote .PACKAGE_DIR }} | Join-Path -ChildPath {{ quote .FILE_NAME }}
-            Copy-Item -Path $bin_file -Destination {{ quote .BIN_DIR }}
+            $bin_file = Join-Path -Path $tmp_dir -ChildPath "{{ osClean .PACKAGE_DIR }}" |
+              Join-Path -ChildPath "{{ osClean .FILE_NAME }}"
+            Copy-Item -Path $bin_file -Destination "{{.BIN_DIR}}"
             Remove-Item -Path $tmp_dir -Recurse
-          '
+
+          EOT
         platforms: [windows]
     status:
-      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --version'
+      - '"{{ print .BIN_DIR .FS_PATH_SEP .NAME exeExt | osClean }}" --help'
 
   dl-coreutils:
     # https://github.com/uutils/coreutils
     desc: Install 'coreutils', cross-platform Rust rewrite of the GNU coreutils
     deps:
       - create-bin-dir
+      - dl-yq
+    preconditions:
+      - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
+        msg: |
+          tar is required to extract files from archives. Please install 'tar' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
+        msg: |
+          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
     vars:
       # Order matters!
       NAME: coreutils
       OWNER: uutils
       REPO: '{{.OWNER}}/{{.NAME}}'
       FILE_NAME: '{{.NAME}}{{exeExt}}'
-      BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
+      BIN_NAME: '{{ print .BIN_DIR .FS_PATH_SEP .FILE_NAME | osClean }}'
       COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
       # arm64 build for Apple darwin is in the works. Use x86_64 for now.
       # See https://github.com/uutils/coreutils/issues/4104
@@ -213,31 +351,21 @@ tasks:
       # FIXME: minute.
       DOWNLOAD_URL:
         sh: |
-          curl --silent --location --output - {{ squote .REPO_URL}} |
-          yq --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .browser_download_url'
+          "{{ print .BIN_DIR .FS_PATH_SEP "xh" exeExt | osClean }}" --follow --body GET {{ squote .REPO_URL }} |
+          "{{ print .BIN_DIR .FS_PATH_SEP "yq" exeExt | osClean }}" --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .browser_download_url'
       PACKAGE_NAME:
         sh: |
-          curl --silent --location --output - {{ squote .REPO_URL}} |
-          yq --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .name'
+          "{{ print .BIN_DIR .FS_PATH_SEP "xh" exeExt | osClean }}" --follow --body GET {{ squote .REPO_URL }} |
+          "{{ print .BIN_DIR .FS_PATH_SEP "yq" exeExt | osClean }}" --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .name'
       PACKAGE_DIR: '{{ trimSuffix .COMPRESS_EXT .PACKAGE_NAME }}'
-    preconditions:
-      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
-        msg: |
-          curl is required to download files. Please install 'curl' and try again.
-      - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
-        msg: |
-          tar is required to extract files from archives. Please install 'tar' and try again.
-      - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
-        msg: |
-          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
     cmds:
       - cmd: |
-          curl --silent --location --output - {{ squote .DOWNLOAD_URL }} |
-          tar --directory {{ squote .BIN_DIR }} --strip-components 1 -zxf - {{ squote (print .PACKAGE_DIR "/" .FILE_NAME) }}
-          chmod a+x {{ squote .BIN_NAME}}
+          "{{ print .BIN_DIR .FS_PATH_SEP "xh" exeExt | osClean }}" --follow --body {{ squote .DOWNLOAD_URL }} |
+          tar --directory "{{.BIN_DIR}}" --strip-components 1 -zxf - "{{ print .PACKAGE_DIR .FS_PATH_SEP .FILE_NAME | osClean }}"
+          chmod a+x "{{.BIN_NAME}}"
         platforms: [linux, darwin]
       - cmd: |
-          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
             $tmp_file = New-TemporaryFile
             Remove-Item -Path $tmp_file
             $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
@@ -245,73 +373,12 @@ tasks:
             $ProgressPreference = "SilentlyContinue"
             Invoke-WebRequest -URI {{ quote .DOWNLOAD_URL }} -OutFile $zip_file
             Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-            $bin_file = Join-Path -Path $tmp_dir -ChildPath {{ quote .PACKAGE_DIR }} | Join-Path -ChildPath {{ quote .FILE_NAME }}
-            Copy-Item -Path $bin_file -Destination {{ quote .BIN_DIR }}
+            $bin_file = Join-Path -Path $tmp_dir -ChildPath "{{ osClean .PACKAGE_DIR }}" |
+              Join-Path -ChildPath "{{ osClean .FILE_NAME }}"
+            Copy-Item -Path $bin_file -Destination "{{.BIN_DIR}}"
             Remove-Item -Path $tmp_dir -Recurse
-          '
-        platforms: [windows]
-    status:
-      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'
 
-  dl-ouch:
-    # https://github.com/ouch-org/ouch
-    desc: Install 'ouch', painless compression and decompression for your terminal
-    deps:
-      - create-bin-dir
-    vars:
-      # Order matters!
-      NAME: ouch
-      OWNER: ouch-org
-      REPO: '{{.OWNER}}/{{.NAME}}'
-      FILE_NAME: '{{.NAME}}{{exeExt}}'
-      BIN_NAME: '{{.BIN_DIR}}{{fromSlash "/"}}{{.FILE_NAME}}'
-      COMPRESS_EXT: '{{ if eq OS "windows"}}.zip{{ else }}.tar.gz{{ end }}'
-      ARCH: '{{ if or (eq ARCH "amd64") (eq ARCH "arm64") }}x86_64{{ else }}{{ARCH}}{{ end }}'
-      ASSET_PATTERN: '{{.NAME}}-{{.ARCH}}-*-{{OS}}{{ if eq OS "linux"}}-musl{{ else if eq OS "windows" }}-gnu{{ end }}{{.COMPRESS_EXT}}'
-      REPO_URL: 'https://api.github.com/repos/{{.REPO}}/releases/latest'
-      # FIXME: The dynamic variables are executed before determining the status, resulting in 2 unauthenticated calls
-      # FIXME: to the GitHub API. This should be fixed.
-      # FIXME: More importantly, tasks that depend on 'xh' will also result in 2 API calls.
-      # FIXME: If many tasks are run concurrently, it's possible to exceed the API limits and get locked out for a
-      # FIXME: minute.
-      DOWNLOAD_URL:
-        sh: |
-          curl --silent --location --output - {{ squote .REPO_URL}} |
-          yq --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .browser_download_url'
-      PACKAGE_NAME:
-        sh: |
-          curl --silent --location --output - {{ squote .REPO_URL}} |
-          yq --unwrapScalar '.assets[] | select(.name=={{ quote .ASSET_PATTERN }}) | .name'
-      PACKAGE_DIR: '{{ trimSuffix .COMPRESS_EXT .PACKAGE_NAME }}'
-    preconditions:
-      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
-        msg: |
-          curl is required to download files. Please install 'curl' and try again.
-      - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
-        msg: |
-          tar is required to extract files from archives. Please install 'tar' and try again.
-      - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
-        msg: |
-          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
-    cmds:
-      - cmd: |
-          curl --silent --location --output - {{ squote .DOWNLOAD_URL }} |
-          tar --directory {{ squote .BIN_DIR }} --strip-components 1 -zxf - {{ squote (print .PACKAGE_DIR "/" .FILE_NAME) }}
-          chmod a+x {{ squote .BIN_NAME}}
-        platforms: [linux, darwin]
-      - cmd: |
-          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command '
-            $tmp_file = New-TemporaryFile
-            Remove-Item -Path $tmp_file
-            $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
-            $zip_file = Join-Path -Path $tmp_dir -ChildPath "{{.NAME}}{{.COMPRESS_EXT}}"
-            $ProgressPreference = "SilentlyContinue"
-            Invoke-WebRequest -URI {{ quote .DOWNLOAD_URL }} -OutFile $zip_file
-            Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
-            $bin_file = Join-Path -Path $tmp_dir -ChildPath {{ quote .PACKAGE_DIR }} | Join-Path -ChildPath {{ quote .FILE_NAME }}
-            Copy-Item -Path $bin_file -Destination {{ quote .BIN_DIR }}
-            Remove-Item -Path $tmp_dir -Recurse
-          '
+          EOT
         platforms: [windows]
     status:
-      - '"{{ osClean (print .BIN_DIR "/" .NAME) }}" --help'
+      - '"{{ print .BIN_DIR .FS_PATH_SEP .NAME exeExt | osClean }}" --version'

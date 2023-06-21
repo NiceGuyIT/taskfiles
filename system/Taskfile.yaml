@@ -27,3 +27,92 @@ tasks:
           then
             echo {{ quote .CHECK_USER }}
           fi
+
+  in-path:
+    desc: Check if a directory is in the PATH
+    summary: |
+      This task will check if the given directory is in the PATH.
+
+      variables:
+       - CHECK_PATH: Path to check
+    vars:
+      CHECK_PATH: '{{.CHECK_PATH}}'
+    cmds:
+      - cmd: |
+          if [[ "{{.ENV_PATH_SEP}}$PATH{{.ENV_PATH_SEP}}" == *"{{.ENV_PATH_SEP}}{{.CHECK_PATH}}{{.ENV_PATH_SEP}}"* ]]; then
+            echo "{{.CHECK_PATH}}"
+          fi
+
+  get-win-registry:
+    desc: Get the windows registry value at the given key location
+    summary: |
+      This task will get the windows registry value at the given location.
+
+      variables:
+       - REG_PATH: Path to the registry key and value, in PowerShell format. I.e. HKCU:\Environment\Path
+    platforms:
+      - windows
+    preconditions:
+      - sh: '[ ! -z {{ quote .REG_PATH }} ]'
+        msg: '.REG_PATH is not defined'
+    vars:
+      # REG_PATH_KEY is used to prevent conflicts with REG_PATH, REG_KEY, and REG_VALUE provided externally.
+      REG_PATH_KEY:
+        sh: |
+          reg_path="{{.REG_PATH}}"
+          echo "${reg_path%\\*}"
+      # REG_PROPERTY_VALUE is used to prevent conflicts with REG_PATH, REG_KEY, and REG_VALUE provided externally.
+      REG_PROPERTY_VALUE:
+        sh: |
+          reg_path="{{.REG_PATH}}"
+          echo "${reg_path##*\\}"
+    cmds:
+      # See https://stackoverflow.com/questions/15511809/how-do-i-get-the-value-of-a-registry-key-and-only-the-value-using-powershell
+      - cmd: |
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
+            (Get-ItemProperty -Path "{{.REG_PATH_KEY}}" -Name "{{.REG_PROPERTY_VALUE}}").{{.REG_PROPERTY_VALUE}}
+
+          EOT
+
+  set-win-registry:
+    desc: Set the windows registry value at the given key location
+    summary: |
+      This task will set the windows registry value at the given location. This accept only existing keys with their
+      type already defined. Creating new registry keys is not supported by this task.
+
+      variables:
+       - REG_PATH: Path to the registry key and value, in PowerShell format. I.e. HKCU:\Environment\Path
+       - REG_VALUE: Registry value to set.
+    platforms:
+      - windows
+    preconditions:
+      - sh: '[ ! -z {{ quote .REG_PATH }} ]'
+        msg: '.REG_PATH is not defined'
+    vars:
+      # REG_PATH_KEY is used to prevent conflicts with REG_PATH, REG_KEY, and REG_VALUE provided externally.
+      REG_PATH_KEY:
+        sh: |
+          reg_path="{{.REG_PATH}}"
+          echo "${reg_path%\\*}"
+      # REG_PROPERTY_VALUE is used to prevent conflicts with REG_PATH, REG_KEY, and REG_VALUE provided externally.
+      REG_PROPERTY_VALUE:
+        sh: |
+          reg_path="{{.REG_PATH}}"
+          echo "${reg_path##*\\}"
+      REG_KEY_EXISTS:
+        sh: |
+          task --silent system:get-win-registry REG_PATH="{{.REG_PATH}}"
+    cmds:
+      # See https://stackoverflow.com/questions/15511809/how-do-i-get-the-value-of-a-registry-key-and-only-the-value-using-powershell
+      - cmd: |
+          {{ if not .REG_KEY_EXISTS }}
+            {{ fail "Registry key does not exist" }}
+          {{ else }}
+            # NOOP
+            true
+          {{ end }}
+      - cmd: |
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
+            Set-ItemProperty -Path "{{.REG_PATH_KEY}}" -Name "{{.REG_PROPERTY_VALUE}}" -Value "{{.REG_VALUE}}"
+
+          EOT

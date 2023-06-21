@@ -141,14 +141,18 @@ tasks:
     desc: List packages available for install
     summary: |
       List packages that are available for installation.
-    preconditions:
-      - sh: command -v yq
-        msg: yq is required to process YAML files. Please install 'yq' and try again.
+    #preconditions:
+    #  - sh: command -v yq
+    #    msg: yq is required to process YAML files. Please install 'yq' and try again.
     vars:
       PACKAGES: '{{ osClean (print "package/packages.yaml") }}'
     cmds:
-      - |
-        yq --output-format json --unwrapScalar '.packages | keys | .[]' {{.PACKAGES}}
+      - cmd: |
+          echo PATH: $PATH
+      - cmd: |
+          echo BIN_DIR: $BIN_DIR
+      - cmd: |
+          yq --output-format json --unwrapScalar '.packages | keys | .[]' {{.PACKAGES}}
 
   list-detailed:
     desc: List packages available for install
