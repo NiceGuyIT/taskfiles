@@ -94,9 +94,17 @@ tasks:
             cd "{{.TMP_DIR}}"
             ouch decompress "{{.PACKAGE_NAME}}"
             {{ if .PKG_ARCHIVE_DIR -}}
-              coreutils cp "$(echo "{{ print .TMP_DIR "/*/" .FILE_NAME | osClean }}" )" "{{ osClean .BIN_NAME }}"
+              {{ if eq OS "windows" }}
+                coreutils cp "$(echo "{{ print .TMP_DIR "/*/" .FILE_NAME | osClean }}" )" "{{ osClean .BIN_NAME }}"
+              {{ else }}
+                coreutils cp "$(echo {{ print .TMP_DIR "/*/" .FILE_NAME | osClean }} )" "{{ osClean .BIN_NAME }}"
+              {{ end }}
             {{ else }}
-              coreutils cp "$(echo "{{ print .TMP_DIR "/" .FILE_NAME | osClean }}" )" "{{ osClean .BIN_NAME }}"
+              {{ if eq OS "windows" }}
+                coreutils cp "$(echo "{{ print .TMP_DIR "/" .FILE_NAME | osClean }}" )" "{{ osClean .BIN_NAME }}"
+              {{ else }}
+                coreutils cp "$(echo {{ print .TMP_DIR "/" .FILE_NAME | osClean }} )" "{{ osClean .BIN_NAME }}"
+              {{ end }}
             {{ end }}
           {{ end }}
         shopt: [globstar]

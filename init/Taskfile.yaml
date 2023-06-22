@@ -66,19 +66,22 @@ tasks:
       ENV_PATH_SYSTEM: 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment\Path'
       CURRENT_PATH:
         sh: |
-          {{ if .HAS_SYSTEM_PERMISSION }}
-            task --silent system:get-win-registry REG_PATH="{{.ENV_PATH_SYSTEM}}"
-          {{ else }}
-            task --silent system:get-win-registry REG_PATH="{{.ENV_PATH_USER}}"
+          {{ if eq OS "windows" }}
+            {{ if .HAS_SYSTEM_PERMISSION }}
+              task --silent system:get-win-registry REG_PATH="{{.ENV_PATH_SYSTEM}}"
+            {{ else }}
+              task --silent system:get-win-registry REG_PATH="{{.ENV_PATH_USER}}"
+            {{ end }}
           {{ end }}
       PATH_EXISTS:
         # Export the PATH to make sure we are testing only the user or system PATH.
         sh: |
-          task=$(command -v task.exe)
-          export PATH="{{.CURRENT_PATH}}"
-          "$task" --silent system:in-path CHECK_PATH="{{.BIN_DIR}}"
+          {{ if eq OS "windows" }}
+            task=$(command -v task{{exeExt}})
+            export PATH="{{.CURRENT_PATH}}"
+            "$task" --silent system:in-path CHECK_PATH="{{.BIN_DIR}}"
+          {{ end }}
     cmds:
-      # FIXME: Check if BIN_DIR is already in the path for the user
       - cmd: |
           {{ if not .PATH_EXISTS }}
             {{ if .HAS_SYSTEM_PERMISSION }}

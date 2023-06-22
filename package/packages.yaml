@@ -129,6 +129,10 @@ packages:
       linux: linux-musl
     asset:
       pattern: '${repo_name}-*-${arch}-*-${os}${archive_ext}'
+    archive:
+      dir: true
+      ext:
+        default: .tar.gz
     status:
       command: atuin --version
 
@@ -252,16 +256,11 @@ packages:
       windows: "win64"
       darwin: "macos-arm64"
     asset:
-      # micro-2.0.11-linux64-static.tar.gz
-      # micro-2.0.11-osx.tar.gz
-      # micro-2.0.11-macos-arm64.tar.gz
-      # micro-2.0.11-win64.zip
       pattern: '${repo_name}-*-${os}${archive_ext}'
     archive:
       dir: true
       ext:
         windows: .zip
-        darwin: .zip
         default: .tar.gz
     status:
       command: micro --version
@@ -339,7 +338,7 @@ packages:
       amd64: x86_64
       arm64: x86_64
     os:
-      darwin: osx
+      darwin: darwin
       linux: linux-musl
       windows: windows-gnu
     asset:
@@ -364,7 +363,7 @@ packages:
       amd64: ""
       arm64: .arm64
     os:
-      darwin: osx
+      darwin: darwin
       linux: linux
       windows: ""
     asset:
