@@ -15,6 +15,7 @@ tasks:
       - task: dl-xh
       - task: dl-ouch
       - task: dl-coreutils
+      - task: add-bin-dir-to-path
     status:
       - task --silent init:create-bin-dir
       - task --silent init:dl-yq

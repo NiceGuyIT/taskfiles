@@ -6,7 +6,10 @@ tasks:
   install:
     desc: Download and install packages
     summary: |
-      Download and install packages.
+      Download and install packages. Use 'task package:list' for list of packages.
+
+      variables:
+       - NAME: Name of the package to install.
     preconditions:
       - sh: '[ ! -z {{ quote .NAME }} ]'
         msg: NAME {{ quote .NAME }} is not defined. Please specify the package NAME as an ENV var.
@@ -20,7 +23,7 @@ tasks:
       PKG_NOTICE:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          notice=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.notice // ""' {{.PACKAGES}})
+          notice=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.notice // ""' "{{.PACKAGES}}")
           {{ if not .NOTICE }}
             # Package notice provided and NOTICE was not called from another task.
             [ -z "${notice}" ] && echo "NOTICE: ${notice}" && exit 1
@@ -28,54 +31,54 @@ tasks:
       PKG_PROVIDER:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          provider=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider // ""' {{.PACKAGES}})
+          provider=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider // ""' "{{.PACKAGES}}")
           [ -z "${provider}" ] && echo "Provider '${provider}' not defined in package definitions" && exit 1
           echo "${provider}"
       PKG_REPO_NAME:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          repo=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo // ""' {{.PACKAGES}})
+          repo=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo // ""' "{{.PACKAGES}}")
           [ -z "${repo}" ] && echo "provider.repo '${repo}' not defined in package definitions" && exit 1
           echo "${repo}"
       PKG_REPO_OWNER:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          owner=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner // ""' {{.PACKAGES}})
+          owner=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner // ""' "{{.PACKAGES}}")
           [ -z "${owner}" ] && echo "provider.owner '${owner}' not defined in package definitions" && exit 1
           echo "${owner}"
       PKG_ARCH:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.arch.{{ARCH}} // "{{ARCH}}"' {{.PACKAGES}}
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.arch.{{ARCH}} // "{{ARCH}}"' "{{.PACKAGES}}"
       PKG_OS:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.os.{{OS}} // "{{OS}}"' {{.PACKAGES}}
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.os.{{OS}} // "{{OS}}"' "{{.PACKAGES}}"
       # Does the archive have a directory?
       PKG_ARCHIVE_DIR:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.dir // ""' {{.PACKAGES}}
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.dir // ""' "{{.PACKAGES}}"
       # Archive directory name: PKG_ARCHIVE_DIR_NAME/PKG_ARCHIVE_FILE_NAME
       PKG_ARCHIVE_DIR_NAME:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
           # Default is same as repo name.
-          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.dir_name // "{{.PKG_REPO}}"' {{.PACKAGES}}
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.dir_name // "{{.PKG_REPO}}"' "{{.PACKAGES}}"
       # Archive file name: PKG_ARCHIVE_DIR_NAME/PKG_ARCHIVE_FILE_NAME
       PKG_ARCHIVE_FILE_NAME:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
           # Default is same as repo name.
-          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.file_name // "{{.PKG_REPO}}"' {{.PACKAGES}}
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.file_name // "{{.PKG_REPO}}"' "{{.PACKAGES}}"
       # Archive extension
       PKG_ARCHIVE_EXT:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          archive_ext=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.ext.{{OS}} // ""' {{.PACKAGES}})
+          archive_ext=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.ext.{{OS}} // ""' "{{.PACKAGES}}")
           if [ -z "${archive_ext}" ]; then
             # Blank means package is not a compressed archive
-            yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.ext.default // ""' {{.PACKAGES}}
+            yq --output-format json --unwrapScalar '.packages.{{.NAME}}.archive.ext.default // ""' "{{.PACKAGES}}"
           else
             echo "${archive_ext}"
           fi
@@ -83,7 +86,7 @@ tasks:
       PKG_ASSET_PATTERN:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          pattern=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.asset.pattern // ""' {{.PACKAGES}})
+          pattern=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.asset.pattern // ""' "{{.PACKAGES}}")
           [ -z "${pattern}" ] && echo "asset.pattern '${pattern}' not defined in package definitions" && exit 1
           name={{.NAME}}
           repo_name={{.PKG_REPO_NAME}}
@@ -97,12 +100,12 @@ tasks:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
           # Default is the standard v0.1.2
-          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.semver.regex // "v?[0-9]+\.([0-9]+\.?){1,}"' {{.PACKAGES}}
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.semver.regex // "v?[0-9]+\.([0-9]+\.?){1,}"' "{{.PACKAGES}}"
       # Command to check of the package is installed.
       PKG_STATUS_COMMAND:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.status.command // "{{.NAME}} --version"' {{.PACKAGES}}
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.status.command // "{{.NAME}} --version"' "{{.PACKAGES}}"
     cmds:
       # - |
       #   echo 'NAME: {{.NAME}}'
@@ -152,7 +155,7 @@ tasks:
       - cmd: |
           echo BIN_DIR: $BIN_DIR
       - cmd: |
-          yq --output-format json --unwrapScalar '.packages | keys | .[]' {{.PACKAGES}}
+          yq --output-format json --unwrapScalar '.packages | keys | .[]' "{{.PACKAGES}}"
 
   list-detailed:
     desc: List packages available for install
@@ -165,7 +168,7 @@ tasks:
       PACKAGES: '{{ osClean (print "package/packages.yaml") }}'
     cmds:
       - |
-        yq --output-format json '.packages[] |= with_entries(select(.key == "link" or .key == "description"))' {{.PACKAGES}}
+        yq --output-format json '.packages[] |= with_entries(select(.key == "link" or .key == "description"))' "{{.PACKAGES}}"
 
   list-assets:
     desc: List the assets of a package
@@ -179,19 +182,19 @@ tasks:
       PKG_PROVIDER:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          provider=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider // ""' {{.PACKAGES}})
+          provider=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider // ""' "{{.PACKAGES}}")
           [ -z "${provider}" ] && echo "Provider '${provider}' not defined in package definitions" && exit 1
           echo "${provider}"
       PKG_REPO_NAME:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          repo=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo // ""' {{.PACKAGES}})
+          repo=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo // ""' "{{.PACKAGES}}")
           [ -z "${repo}" ] && echo "provider.repo '${repo}' not defined in package definitions" && exit 1
           echo "${repo}"
       PKG_REPO_OWNER:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          owner=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner // ""' {{.PACKAGES}})
+          owner=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner // ""' "{{.PACKAGES}}")
           [ -z "${owner}" ] && echo "provider.owner '${owner}' not defined in package definitions" && exit 1
           echo "${owner}"
       REPO_URL: 'https://api.github.com/repos/{{.PKG_REPO_OWNER}}/{{.PKG_REPO_NAME}}/releases/latest'
@@ -217,19 +220,19 @@ tasks:
       PKG_PROVIDER:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          provider=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider // ""' {{.PACKAGES}})
+          provider=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider // ""' "{{.PACKAGES}}")
           [ -z "${provider}" ] && echo "Provider '${provider}' not defined in package definitions" && exit 1
           echo "${provider}"
       PKG_REPO_NAME:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          repo=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo // ""' {{.PACKAGES}})
+          repo=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo // ""' "{{.PACKAGES}}")
           [ -z "${repo}" ] && echo "provider.repo '${repo}' not defined in package definitions" && exit 1
           echo "${repo}"
       PKG_REPO_OWNER:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          owner=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner // ""' {{.PACKAGES}})
+          owner=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner // ""' "{{.PACKAGES}}")
           [ -z "${owner}" ] && echo "provider.owner '${owner}' not defined in package definitions" && exit 1
           echo "${owner}"
       REPO_URL: 'https://api.github.com/repos/{{.PKG_REPO_OWNER}}/{{.PKG_REPO_NAME}}/releases/latest'
@@ -245,11 +248,11 @@ tasks:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
           # Default is the standard v0.1.2
-          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.semver.regex // "v?[0-9]+\.([0-9]+\.?){1,}"' {{.PACKAGES}}
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.semver.regex // "v?[0-9]+\.([0-9]+\.?){1,}"' "{{.PACKAGES}}"
       PKG_STATUS_COMMAND:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.status.command // "{{.NAME}} --version"' {{.PACKAGES}}
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.status.command // "{{.NAME}} --version"' "{{.PACKAGES}}"
       PKG_CURRENT_VERSION:
         # FIXME: Check if the PKG_STATUS_COMMAND fails
         sh: |
@@ -285,19 +288,19 @@ tasks:
       PKG_PROVIDER:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          provider=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider // ""' {{.PACKAGES}})
+          provider=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.provider // ""' "{{.PACKAGES}}")
           [ -z "${provider}" ] && echo "Provider '${provider}' not defined in package definitions" && exit 1
           echo "${provider}"
       PKG_REPO_NAME:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          repo=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo // ""' {{.PACKAGES}})
+          repo=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.repo // ""' "{{.PACKAGES}}")
           [ -z "${repo}" ] && echo "provider.repo '${repo}' not defined in package definitions" && exit 1
           echo "${repo}"
       PKG_REPO_OWNER:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          owner=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner // ""' {{.PACKAGES}})
+          owner=$(yq --output-format json --unwrapScalar '.packages.{{.NAME}}.{{.PKG_PROVIDER}}.owner // ""' "{{.PACKAGES}}")
           [ -z "${owner}" ] && echo "provider.owner '${owner}' not defined in package definitions" && exit 1
           echo "${owner}"
       REPO_URL: 'https://api.github.com/repos/{{.PKG_REPO_OWNER}}/{{.PKG_REPO_NAME}}/releases/latest'
@@ -319,12 +322,12 @@ tasks:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
           # Default is the standard v0.1.2
-          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.semver.regex // "v?[0-9]+\.([0-9]+\.?){1,}"' {{.PACKAGES}}
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.semver.regex // "v?[0-9]+\.([0-9]+\.?){1,}"' "{{.PACKAGES}}"
       # Command to check of the package is installed.
       PKG_STATUS_COMMAND:
         sh: |
           [ -z {{ quote .NAME }} ] && echo "Name was not provided" && exit 1
-          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.status.command // "{{.NAME}} --version"' {{.PACKAGES}}
+          yq --output-format json --unwrapScalar '.packages.{{.NAME}}.status.command // "{{.NAME}} --version"' "{{.PACKAGES}}"
     cmds:
       - cmd: |
           {{.PKG_STATUS_COMMAND}} |
