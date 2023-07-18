@@ -142,5 +142,5 @@ tasks:
         msg: xh is required to download files. Please install 'xh' and try again.
     cmds:
       - cmd: |
-          xh --headers https://api.github.com/rate_limit
+          xh --json --body https://api.github.com/rate_limit
           echo For more information, see https://docs.github.com/en/rest/rate-limit

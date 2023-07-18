@@ -5,25 +5,36 @@ tasks:
 
   all:
     desc: Initialize (download) the necessary utilities.
+    interactive: true
     cmds:
       - task: create-bin-dir
         vars: {
           BIN_DIR: '{{.BIN_DIR}}'
         }
       - task: dl-yq
+      - cmd: |
+          sleep 1
       - task: dl-task
+      - cmd: |
+          sleep 1
       - task: dl-xh
+      - cmd: |
+          sleep 1
       - task: dl-ouch
+      - cmd: |
+          sleep 1
       - task: dl-coreutils
+      - cmd: |
+          sleep 1
       - task: add-bin-dir-to-path
     status:
-      - task --silent init:create-bin-dir
-      - task --silent init:dl-yq
-      - task --silent init:dl-task
-      - task --silent init:dl-xh
-      - task --silent init:dl-ouch
-      - task --silent init:dl-coreutils
-      - task --silent init:add-bin-dir-to-path
+      - task --verbose init:create-bin-dir
+      - task --verbose init:dl-yq
+      - task --verbose init:dl-task
+      - task --verbose init:dl-xh
+      - task --verbose init:dl-ouch
+      - task --verbose init:dl-coreutils
+      - task --verbose init:add-bin-dir-to-path
 
   create-bin-dir:
     desc: Create the bin directory
@@ -385,4 +396,4 @@ tasks:
           EOT
         platforms: [windows]
     status:
-      - '"{{ print .BIN_DIR .FS_PATH_SEP .NAME exeExt | osClean }}" --version'
+      - '"{{ print .BIN_DIR .FS_PATH_SEP .NAME exeExt | osClean }}" --help'
