@@ -71,4 +71,4 @@ jobs:
               --repo="${GITHUB_REPOSITORY}" \
               --title="${GITHUB_REPOSITORY#*/} ${tag#v}" \
               --generate-notes \
-              /tmp/${REPO_NAME}-${GITHUB_REF_NAME}.*
+              /tmp/${REPO_NAME}.*
