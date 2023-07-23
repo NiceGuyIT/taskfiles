@@ -44,10 +44,10 @@ jobs:
         run: |
           git archive \
             --format ${ARCHIVE_FORMAT} \
-            --output /tmp/${REPO_NAME}-${GITHUB_REF_NAME}.${ARCHIVE_FORMAT} \
+            --output /tmp/${REPO_NAME}.${ARCHIVE_FORMAT} \
             --prefix ${REPO_NAME}-${GITHUB_REF_NAME}/ \
             --worktree-attributes \
-            "${{ github.event.repository.name }}"
+            "${GITHUB_REF_NAME}"
 
       - name: Create ZIP archive
         env:
@@ -57,10 +57,10 @@ jobs:
         run: |
           git archive \
             --format "${ARCHIVE_FORMAT}" \
-            --output /tmp/${REPO_NAME}-${GITHUB_REF_NAME}.${ARCHIVE_FORMAT} \
+            --output /tmp/${REPO_NAME}.${ARCHIVE_FORMAT} \
             --prefix ${REPO_NAME}-${GITHUB_REF_NAME}/ \
             --worktree-attributes \
-            "${{ github.event.repository.name }}"
+            "${GITHUB_REF_NAME}"
 
       - name: Create release
         env:
