@@ -47,7 +47,7 @@ jobs:
             --output /tmp/${REPO_NAME}-${GITHUB_REF_NAME}.${ARCHIVE_FORMAT} \
             --prefix ${REPO_NAME}-${GITHUB_REF_NAME}/ \
             --worktree-attributes \
-            "${GITHUB_REF_NAME}"
+            "${{ github.event.repository.name }}"
 
       - name: Create ZIP archive
         env:
@@ -60,7 +60,7 @@ jobs:
             --output /tmp/${REPO_NAME}-${GITHUB_REF_NAME}.${ARCHIVE_FORMAT} \
             --prefix ${REPO_NAME}-${GITHUB_REF_NAME}/ \
             --worktree-attributes \
-            "${GITHUB_REF_NAME}"
+            "${{ github.event.repository.name }}"
 
       - name: Create release
         env:
@@ -71,4 +71,4 @@ jobs:
               --repo="${GITHUB_REPOSITORY}" \
               --title="${GITHUB_REPOSITORY#*/} ${tag#v}" \
               --generate-notes \
-              /tmp/${REPO_NAME}-${GITHUB_REF_NAME}.*
+              /tmp/${REPO_NAME}.*
