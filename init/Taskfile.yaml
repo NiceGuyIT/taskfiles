@@ -29,11 +29,7 @@ tasks:
       - task: add-bin-dir-to-path
     status:
       - task --verbose init:create-bin-dir
-      - task --verbose init:dl-yq
-      - task --verbose init:dl-task
-      - task --verbose init:dl-xh
-      - task --verbose init:dl-ouch
-      - task --verbose init:dl-coreutils
+      - task --verbose init:dl-all
       - task --verbose init:add-bin-dir-to-path
 
   create-bin-dir:
@@ -106,21 +102,85 @@ tasks:
 
   dl-all:
     desc: Download yq, xh, ouch, coreutils and task to the BIN_DIR
+    summary: |
+      This task downloads the base files to initialize the taskfiles.
     deps:
       - create-bin-dir
     preconditions:
+      - sh: '[ ! -z {{ quote .BIN_DIR }} ]'
+        msg: |
+          BIN_DIR '{{.BIN_DIR}}' is not defined. Please see the docs and define TASKFILE_BIN_DIR '{{.TASKFILE_BIN_DIR}}'.
       - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
         msg: |
           curl is required to download files. Please install 'curl' and try again.
-    vars:
-      BIN_NAME: '{{ print .BIN_DIR .FS_PATH_SEP .FILE_NAME | osClean }}'
-      URL_FILE: '{{OS}}-{{ARCH}}.txt'
+      - sh: '{{ if ne OS "windows"}}command -v tar{{ end }}'
+        msg: |
+          tar is required to extract files from archives. Please install 'tar' and try again.
+      - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
+        msg: |
+          gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
+    # dotenv does not work in included taskfiles. dotenv is defined in the main taskfile and the variables are scoped
+    # to prevent conflict.
+    # dotenv:
+    #   - 'env-{{OS}}-{{ARCH}}.txt'
+    # vars:
+    #   BIN_NAME: '{{ print .BIN_DIR .FS_PATH_SEP .FILE_NAME | osClean }}'
     cmds:
+      # Copy task first
+      # The test for "task" matches non-Windows while the test for "task.exe" matches Windows.
       - cmd: |
-          for url in $(cat {{.URL_FILE}})
+          if [[ -f "{{ print .BIN_DIR .FS_PATH_SEP "task" exeExt | osClean }}" ]]; then
+            echo "task{{exeExt}} is already in {{.BIN_DIR}}"
+          elif [[ -f "../task" ]]; then
+            cp ../task "{{ print .BIN_DIR .FS_PATH_SEP "task" exeExt | osClean }}"
+          elif [[ -f "../task.exe" ]]; then
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -WindowStyle Hidden -Command - << 'EOT'
+            Copy-Item -Path {{ print "../task.exe" | osClean }} -Destination {{ print .BIN_DIR .FS_PATH_SEP "task" exeExt | osClean }}
+
+          EOT
+          else
+            echo "'../task' or '../task.exe' does not exist, and 'task' does not exist in BIN_DIR. Is this the first run?"
+            echo "BIN_DIR: '{{.BIN_DIR}}'"
+            exit 1
+          fi
+      # Then extract ouch because ouch can uncompress files in a sane manner.
+      # I.e. a directory is always created and has the same name as the archive.
+      - cmd: |
+          if [[ -f "{{ print .BIN_DIR .FS_PATH_SEP "ouch" exeExt | osClean }}" ]]; then
+            echo "ouch{{exeExt}} is already in {{.BIN_DIR}}"
+          else
+            tmp_dir=$(mktemp --directory)
+            cd "${tmp_dir}"
+            curl --silent --location --output "${tmp_dir}/ouch.tar.gz" "$TASKFILE_INIT_URL_OUCH"
+            tar --directory=$tmp_dir --strip-components 1 --gunzip --extract --file "${tmp_dir}/ouch.tar.gz"
+            cp "${tmp_dir}/ouch" "{{ print .BIN_DIR .FS_PATH_SEP "ouch" exeExt | osClean }}"
+            rm -r "${tmp_dir}"
+          fi
+      # Finally, download and extract all the other files.
+      - cmd: |
+          tmp_dir=$(mktemp --directory)
+          cd "${tmp_dir}"
+          declare -a programs=("xh" "yq" "coreutils")
+          for program in "${programs[@]}"
           do
-            echo "URL: $url"
+            if [[ -f "{{.BIN_DIR}}{{.FS_PATH_SEP}}${program}{{.exeExt}}" ]]; then
+              echo "${program}{{exeExt}} is already in {{.BIN_DIR}}"
+            else
+              echo "Installing program ${program}"
+              mkdir "${program}"
+              cd "${program}"
+              curl --silent --location --output "${tmp_dir}/${program}/${program}.tar.gz" "$(eval echo "\$TASKFILE_INIT_URL_${program^^}")"
+              "{{.BIN_DIR}}{{.FS_PATH_SEP}}ouch" decompress "${tmp_dir}/${program}/${program}.tar.gz"
+              if [ "${program}" == "yq" ]; then
+                cp ${tmp_dir}{{.FS_PATH_SEP}}${program}{{.FS_PATH_SEP}}${program}*{{.FS_PATH_SEP}}${program}_{{OS}}_{{ARCH}} "{{.BIN_DIR}}{{.FS_PATH_SEP}}${program}"
+              else
+                cp ${tmp_dir}{{.FS_PATH_SEP}}${program}{{.FS_PATH_SEP}}${program}*{{.FS_PATH_SEP}}${program} "{{.BIN_DIR}}{{.FS_PATH_SEP}}${program}"
+              fi
+              cd ..
+            fi
           done
+          rm -r "${tmp_dir}"
+        # shopt: [globstar]
       # - cmd: |
       #     {{ if ne OS "windows" }}
       #       curl --silent --location --output "{{.BIN_NAME}}" {{ squote .REPO_URL }}
@@ -133,8 +193,12 @@ tasks:
       #
       #     EOT
       #   platforms: [windows]
-    # status:
-    #   - '"{{ print .BIN_DIR .FS_PATH_SEP .NAME exeExt | osClean }}" --version'
+    status:
+      - '"{{ print .BIN_DIR .FS_PATH_SEP "task" exeExt | osClean }}" --version'
+      - '"{{ print .BIN_DIR .FS_PATH_SEP "ouch" exeExt | osClean }}" --version'
+      - '"{{ print .BIN_DIR .FS_PATH_SEP "coreutils*" exeExt | osClean }}" --help'
+      - '"{{ print .BIN_DIR .FS_PATH_SEP "yq" exeExt | osClean }}" --version'
+      - '"{{ print .BIN_DIR .FS_PATH_SEP "xh" exeExt | osClean }}" --version'
 
   dl-yq:
     # https://github.com/mikefarah/yq

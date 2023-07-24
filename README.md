@@ -212,13 +212,15 @@ tasks:
 In order to use mutliline PowerShell commands from the command line, add an extra return after the code block.
 See [Powershell fails to run multi-line commands from stdin][].
 
-```text
-          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
-            if (-not (Test-Path -Path "{{.BIN_DIR}}")) {
-              New-Item -Path "{{.BIN_DIR}}" -ItemType Directory | Out-Null
-            }
+- Add `-ExecutionPolicy Bypass` to bypass the execution policy for this script only.
 
-          EOT
+```text
+powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -WindowStyle Hidden -Command - << 'EOT'
+  if (-not (Test-Path -Path "{{.BIN_DIR}}")) {
+    New-Item -Path "{{.BIN_DIR}}" -ItemType Directory | Out-Null
+  }
+
+EOT
 ```
 
 [SO answer]: https://stackoverflow.com/a/68361609

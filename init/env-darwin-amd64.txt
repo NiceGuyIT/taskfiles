@@ -1,5 +1,5 @@
-https://github.com/go-task/task/releases/download/v3.27.1/task_darwin_amd64.tar.gz
-https://github.com/mikefarah/yq/releases/download/v4.34.2/yq_darwin_amd64
-https://github.com/ducaale/xh/releases/download/v0.18.0/xh-v0.18.0-x86_64-apple-darwin.tar.gz
-https://github.com/ouch-org/ouch/releases/download/0.4.1/ouch-x86_64-apple-darwin.tar.gz
-https://github.com/uutils/coreutils/releases/download/0.0.20/coreutils-0.0.20-x86_64-apple-darwin.tar.gz
+TASKFILE_INIT_URL_TASK=https://github.com/go-task/task/releases/download/v3.27.1/task_darwin_amd64.tar.gz
+TASKFILE_INIT_URL_YQ=https://github.com/mikefarah/yq/releases/download/v4.34.2/yq_darwin_amd64
+TASKFILE_INIT_URL_XH=https://github.com/ducaale/xh/releases/download/v0.18.0/xh-v0.18.0-x86_64-apple-darwin.tar.gz
+TASKFILE_INIT_URL_OUCH=https://github.com/ouch-org/ouch/releases/download/0.4.1/ouch-x86_64-apple-darwin.tar.gz
+TASKFILE_INIT_URL_COREUTILS=https://github.com/uutils/coreutils/releases/download/0.0.20/coreutils-0.0.20-x86_64-apple-darwin.tar.gz

@@ -1,6 +1,10 @@
 ---
 version: "3"
 
+# dotenv does not work in included taskfiles. Include the init env files here, so they are available for the init tasks.
+dotenv:
+  - 'init/env-{{OS}}-{{ARCH}}.txt'
+
 # Global variables
 vars:
 
@@ -64,6 +68,7 @@ vars:
 # duplication.
 includes:
   init:
+    # dotenv does not work in included taskfiles.
     taskfile: init/Taskfile.yaml
     optional: true
     dir: ./init
