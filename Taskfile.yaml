@@ -66,6 +66,7 @@ includes:
   init:
     taskfile: init/Taskfile.yaml
     optional: true
+    dir: ./init
   package:
     taskfile: package/Taskfile.yaml
     optional: true

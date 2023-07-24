@@ -104,6 +104,38 @@ tasks:
           {{ end }}
         platforms: [windows]
 
+  dl-all:
+    desc: Download yq, xh, ouch, coreutils and task to the BIN_DIR
+    deps:
+      - create-bin-dir
+    preconditions:
+      - sh: '{{ if ne OS "windows"}}command -v curl{{ end }}'
+        msg: |
+          curl is required to download files. Please install 'curl' and try again.
+    vars:
+      BIN_NAME: '{{ print .BIN_DIR .FS_PATH_SEP .FILE_NAME | osClean }}'
+      URL_FILE: '{{OS}}-{{ARCH}}.txt'
+    cmds:
+      - cmd: |
+          for url in $(cat {{.URL_FILE}})
+          do
+            echo "URL: $url"
+          done
+      # - cmd: |
+      #     {{ if ne OS "windows" }}
+      #       curl --silent --location --output "{{.BIN_NAME}}" {{ squote .REPO_URL }}
+      #       chmod a+x "{{.BIN_NAME}}"
+      #     {{ end }}
+      # - cmd: |
+      #     powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
+      #       $ProgressPreference = "SilentlyContinue"
+      #       Invoke-WebRequest -URI {{ squote .REPO_URL }} -OutFile "{{.BIN_NAME}}"
+      #
+      #     EOT
+      #   platforms: [windows]
+    # status:
+    #   - '"{{ print .BIN_DIR .FS_PATH_SEP .NAME exeExt | osClean }}" --version'
+
   dl-yq:
     # https://github.com/mikefarah/yq
     desc: Download 'yq', a portable command-line YAML, JSON, XML, CSV, TOML and properties processor

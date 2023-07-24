@@ -1,0 +1,5 @@
+https://github.com/go-task/task/releases/download/v3.27.1/task_windows_amd64.zip
+https://github.com/mikefarah/yq/releases/download/v4.34.2/yq_windows_amd64.exe
+https://github.com/ducaale/xh/releases/download/v0.18.0/xh-v0.18.0-x86_64-pc-windows-msvc.zip
+https://github.com/ouch-org/ouch/releases/download/0.4.1/ouch-x86_64-pc-windows-gnu.zip
+https://github.com/uutils/coreutils/releases/download/0.0.20/coreutils-0.0.20-x86_64-pc-windows-gnu.zip
