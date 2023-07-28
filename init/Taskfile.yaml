@@ -32,6 +32,18 @@ tasks:
       - task --verbose init:dl-all
       - task --verbose init:add-bin-dir-to-path
 
+  get-bin-dir:
+    desc: Get the bin directory for testing purposes
+    preconditions:
+      - sh: '[ ! -z {{ quote .BIN_DIR }} ]'
+        msg: '.BIN_DIR is not defined'
+    cmds:
+      - cmd: 'echo "PATH: {{.PATH}} "'
+      - cmd: 'echo "BIN_DIR (var): {{.BIN_DIR}} "'
+      - cmd: 'echo "BIN_DIR (env): ${BIN_DIR} "'
+      - cmd: 'echo "TASKFILE_BIN_DIR (var): ${TASKFILE_BIN_DIR} "'
+      - cmd: 'echo "TASKFILE_BIN_DIR (env): {{.TASKFILE_BIN_DIR}} "'
+
   create-bin-dir:
     desc: Create the bin directory
     preconditions:
@@ -119,8 +131,8 @@ tasks:
       - sh: '{{ if ne OS "windows"}}command -v gunzip{{ end }}'
         msg: |
           gunzip is required to uncompress files. Please install 'gunzip'/'gzip' and try again.
-    # dotenv does not work in included taskfiles. dotenv is defined in the main taskfile and the variables are scoped
-    # to prevent conflict.
+    # dotenv does not work in included taskfiles. dotenv is defined in the main taskfile and the variables are
+    # scoped (prefixed) to prevent conflict.
     # dotenv:
     #   - 'env-{{OS}}-{{ARCH}}.txt'
     # vars:
@@ -155,7 +167,27 @@ tasks:
             tar --directory=$tmp_dir --strip-components 1 --gunzip --extract --file "${tmp_dir}/ouch.tar.gz"
             cp "${tmp_dir}/ouch" "{{ print .BIN_DIR .FS_PATH_SEP "ouch" exeExt | osClean }}"
             rm -r "${tmp_dir}"
+
           fi
+        platforms: [linux, darwin]
+      - cmd: |
+          if [[ -f "{{ print .BIN_DIR .FS_PATH_SEP "ouch" exeExt | osClean }}" ]]; then
+            echo "ouch{{exeExt}} is already in {{.BIN_DIR}}"
+          else
+            powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat -WindowStyle Hidden text -Command - << 'EOT'
+              $tmp_file = New-TemporaryFile
+              Remove-Item -Path $tmp_file
+              $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
+              $zip_file = Join-Path -Path $tmp_dir -ChildPath "ouch.zip"
+              $ProgressPreference = "SilentlyContinue"
+              Invoke-WebRequest -URI "$ENV:TASKFILE_INIT_URL_OUCH" -OutFile $zip_file
+              Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
+              Copy-Item -Path "$(Join-Path -Path $tmp_dir -ChildPath ouch-* -Resolve)\ouch{{exeExt}}" -Destination {{ print .BIN_DIR | osClean}}
+              Write-Output "Remove-Item -Path $tmp_dir -Recurse"
+
+          EOT
+          fi
+        platforms: [windows]
       # Finally, download and extract all the other files.
       - cmd: |
           tmp_dir=$(mktemp --directory)
@@ -180,7 +212,34 @@ tasks:
             fi
           done
           rm -r "${tmp_dir}"
-        # shopt: [globstar]
+        platforms: [linux, darwin]
+      # FIXME: Add '-WindowStyle Hidden' to the PowerShell command
+      - cmd: |
+          powershell -NonInteractive -NoProfile -NoLogo -InputFormat text -OutputFormat text -Command - << 'EOT'
+            $tmp_file = New-TemporaryFile
+            Remove-Item -Path $tmp_file
+            $tmp_dir = New-Item -ItemType Directory -Path $(Join-Path -Path $ENV:Temp -ChildPath $tmp_file.Name)
+            $ProgressPreference = "SilentlyContinue"
+
+            $Programs = ("xh", "yq", "coreutils")
+            ForEach ($Program in $Programs) {
+
+              $zip_file = Join-Path -Path $tmp_dir -ChildPath "${Program}.zip"
+              $Url = $(Get-Item -Path ("ENV:TASKFILE_INIT_URL_{0}" -f $Program.ToUpper())).Value
+              Invoke-WebRequest -URI $Url -OutFile $zip_file
+              Expand-Archive -Path $zip_file -DestinationPath $tmp_dir
+              if ($Program -eq "yq") {
+                $file = Join-Path $tmp_dir $(Get-ChildItem -Path $tmp_dir -Filter "${Program}_*{{exeExt}}" -File)
+                Copy-Item -Path "${file}" -Destination "{{ print .BIN_DIR | osClean}}{{.FS_PATH_SEP}}${Program}{{exeExt}}"
+              } else {
+                $zip_dir = Join-Path $tmp_dir $(Get-ChildItem -Path $tmp_dir -Filter "${Program}*" -Directory)
+                Copy-Item -Path "$(Join-Path -Path $zip_dir -ChildPath "${Program}{{exeExt}}" -Resolve)" -Destination {{ print .BIN_DIR | osClean}}
+              }
+            }
+            Remove-Item -Path $tmp_dir -Recurse
+
+          EOT
+        platforms: [windows]
       # - cmd: |
       #     {{ if ne OS "windows" }}
       #       curl --silent --location --output "{{.BIN_NAME}}" {{ squote .REPO_URL }}

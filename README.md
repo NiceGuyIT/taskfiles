@@ -165,6 +165,7 @@ of task.
   advisable to set global environmental variables as global variables in the main Taskfile, and then assign the
   environmental variable in the task using the global variable. This provides the ability to change the variable in the
   included (child) Taskfile.
+- Global variables do not have access to global environmental variables declared as ""
 
 Vars are expanded for Env but Env is not expanded for Vars.
 This will work:
@@ -190,6 +191,14 @@ tasks:
         sh: |
           echo $ENV1
 ```
+
+### Using environmental variables in dynamic variables
+
+See [issue #1282][] for an explanation of how to expand environmental variables inside dynamic variables.
+- Global dynamic variables **cannot** expand global environmental variables.
+- Local dynamic variables **can** expand local or global environmental variables.
+
+[issue #1282]: https://github.com/go-task/task/issues/1282
 
 [issue #178]: https://github.com/go-task/task/issues/178
 

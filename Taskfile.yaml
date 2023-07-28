@@ -5,6 +5,11 @@ version: "3"
 dotenv:
   - 'init/env-{{OS}}-{{ARCH}}.txt'
 
+# Global environmental variables
+env:
+
+  TASKFILE_BIN_DIR: '{{.TASKFILE_BIN_DIR}}'
+
 # Global variables
 vars:
 
@@ -35,9 +40,17 @@ vars:
   # Otherwise, the user's bin directory is used.
   # Task treats environmental variables as case-sensitive while Windows does not.
   # Pass the path to osClean to make sure backslashes are handled on Windows.
+  # The test operator adds a blank space at the end to account for Window's backslash which will escape the quote.
   BIN_DIR:
     sh: |
-      if [ -z $TASKFILE_BIN_DIR ]; then
+      if [ "${TASKFILE_BIN_DIR} " != " " ]; then
+        # ENV_VAR="some var" task task-name
+        echo "${TASKFILE_BIN_DIR}"
+      elif [ "{{.TASKFILE_BIN_DIR}} " != " " ]; then
+        # task task-name ENV_VAR="some var"
+        echo "{{.TASKFILE_BIN_DIR}} "
+      else
+        # TASKFILE_BIN_DIR not defined
         {{ if eq OS "windows" -}}
           {{- if .HAS_SYSTEM_PERMISSION -}}
             {{- if .ProgramData -}}
@@ -53,15 +66,13 @@ vars:
         {{- else -}}
           echo "{{ if .HAS_SYSTEM_PERMISSION }}/usr/local/bin{{ else }}{{.HOME}}/bin{{ end }}"
         {{- end }}
-      else
-        echo $TASKFILE_BIN_DIR
       fi
 
   # Append BIN_DIR to the PATH
   # Note: Since existing env vars can't be overridden, the PATH variable is used to set the PATH env var in each cmd.
   PATH:
     sh: |
-      echo "${PATH}{{.ENV_PATH_SEP}}{{.BIN_DIR}}"
+      echo "${PATH}{{.ENV_PATH_SEP}}{{.BIN_DIR}} "
 
 # Include all the tasks at the top level, so they can include tasks in other files. If the tasks are included in the
 # sub-files, the tasks are repeated in the 'task --list' output. Including all tasks at the top level prevents this
