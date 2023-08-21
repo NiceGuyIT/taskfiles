@@ -121,7 +121,7 @@ tasks:
     desc: Backup an nspawn container
     summary: |
       This task will shut down the nspawn container, backup the directory and then start the container.
-      
+
       variables:
        - BACKUP_DIR: Directory to save the backup.
        - MACHINE_NAME: nspawn container to backup.
