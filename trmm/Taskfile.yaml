@@ -183,3 +183,28 @@ tasks:
           MGMT_DIR: '{{.MGMT_DIR}}',
           MGMT_CMD: '{{.MGMT_CMD}}',
         }
+
+  update-tactical:
+    desc: Update TacticalRMM
+    summary: |
+      This task will update the TacticalRMM install without reloading the community scripts.
+    vars:
+      TRMM_USER:
+        sh: |
+          task --silent trmm:config-get-tactical-user
+    preconditions:
+      - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
+        msg: |
+          Tactical does not appear to be installed. Management commands can only be run on a Tactical instance.
+      - sh: '[ ! -z {{ squote .TRMM_USER }} ]'
+        msg: |
+          TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
+    cmds:
+      - cmd: |
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            xh --download --output update-remote.sh https://raw.githubusercontent.com/amidaware/tacticalrmm/master/update.sh
+            # Examine the difference
+            diff update-remote.sh update.sh
+            # vim -d update-remote.sh update.sh
+            echo "./update.sh 2>&1 | tee -a update-$(timestamp).log"
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
