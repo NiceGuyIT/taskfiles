@@ -137,7 +137,7 @@ tasks:
     platforms: [linux]
     cmds:
       - cmd: |
-          machinectl stop {{.MACHINE_NAME}}
+          machinectl show {{.MACHINE_NAME}} | rg State=running && machinectl stop {{.MACHINE_NAME}}
           while
             machinectl show {{.MACHINE_NAME}} | rg State=running
           do
