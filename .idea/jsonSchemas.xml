@@ -25,7 +25,7 @@
             <SchemaInfo>
               <option name="generatedName" value="New Schema" />
               <option name="name" value="Package YAML Schema" />
-              <option name="relativePathToSchema" value="install/packages/schema.yaml" />
+              <option name="relativePathToSchema" value="package/packages.schema.yaml" />
               <option name="schemaVersion" value="JSON Schema version 7" />
               <option name="patterns">
                 <list>

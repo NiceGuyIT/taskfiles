@@ -116,3 +116,32 @@ tasks:
             Set-ItemProperty -Path "{{.REG_PATH_KEY}}" -Name "{{.REG_PROPERTY_VALUE}}" -Value "{{.REG_VALUE}}"
 
           EOT
+
+  backup-nspawn:
+    desc: Backup an nspawn container
+    summary: |
+      This task will shut down the nspawn container, backup the directory and then start the container.
+      
+      variables:
+       - BACKUP_DIR: Directory to save the backup.
+       - MACHINE_NAME: nspawn container to backup.
+    vars:
+      TIMESTAMP: '{{ now | date "20060102T150405Z0700" }}'
+    preconditions:
+      - sh: '[ ! -z {{ squote .BACKUP_DIR }} ]'
+        msg: |
+          BACKUP_DIR {{ quote .BACKUP_DIR }} is empty. Please specify the backup directory.
+      - sh: '[ ! -z {{ squote .MACHINE_NAME }} ]'
+        msg: |
+          MACHINE_NAME {{ quote .MACHINE_NAME }} is empty. Please specify the machine to backup.
+    platforms: [linux]
+    cmds:
+      - cmd: |
+          machinectl stop {{.MACHINE_NAME}}
+          while
+            machinectl show {{.MACHINE_NAME}} | rg State=running
+          do
+            sleep 1
+          done
+          machinectl list
+          tar --create --use-compress-program zstd --file {{.BACKUP_DIR}}/{{.MACHINE_NAME}}.{{.TIMESTAMP}}.tar.zstd {{.MACHINE_NAME}}
