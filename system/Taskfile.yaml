@@ -144,4 +144,6 @@ tasks:
             sleep 1
           done
           machinectl list
+
+          cd $(dirname $(realpath /var/lib/machines/{{.MACHINE_NAME}})) || exit 1
           tar --create --use-compress-program zstd --file {{.BACKUP_DIR}}/{{.MACHINE_NAME}}.{{.TIMESTAMP}}.tar.zstd {{.MACHINE_NAME}}
