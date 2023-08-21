@@ -136,10 +136,12 @@ tasks:
           MACHINE_NAME {{ quote .MACHINE_NAME }} is empty. Please specify the machine to backup.
     platforms: [linux]
     cmds:
+      # Note: 'machinectl show' and 'machinectl status' return errors if the machine is not running.
+      # Use 'machinectl list | grep ...' to check if the machine is running.
       - cmd: |
-          machinectl show {{.MACHINE_NAME}} | rg State=running && machinectl stop {{.MACHINE_NAME}}
+          machinectl list | rg '^{{.MACHINE_NAME}}' && machinectl stop {{.MACHINE_NAME}}
           while
-            machinectl show {{.MACHINE_NAME}} | rg State=running
+            machinectl list | rg '^{{.MACHINE_NAME}}'
           do
             sleep 1
           done
@@ -147,3 +149,5 @@ tasks:
 
           cd $(dirname $(realpath /var/lib/machines/{{.MACHINE_NAME}})) || exit 1
           tar --create --use-compress-program zstd --file {{.BACKUP_DIR}}/{{.MACHINE_NAME}}.{{.TIMESTAMP}}.tar.zstd {{.MACHINE_NAME}}
+          ls -lh {{.BACKUP_DIR}}
+          df -Th {{.BACKUP_DIR}}
