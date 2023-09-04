@@ -151,3 +151,4 @@ tasks:
           tar --create --use-compress-program zstd --file {{.BACKUP_DIR}}/{{.MACHINE_NAME}}.{{.TIMESTAMP}}.tar.zstd {{.MACHINE_NAME}}
           ls -lh {{.BACKUP_DIR}}
           df -Th {{.BACKUP_DIR}}
+          machinectl start {{.MACHINE_NAME}}
