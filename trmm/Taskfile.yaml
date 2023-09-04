@@ -192,6 +192,10 @@ tasks:
       TRMM_USER:
         sh: |
           task --silent trmm:config-get-tactical-user
+      TRMM_HOME:
+        sh: |
+          eval echo ~{{.TRMM_USER}}
+      UPDATE_URL: https://raw.githubusercontent.com/amidaware/tacticalrmm/master/update.sh
     preconditions:
       - sh: '[ -f {{ squote .TRMM_DEFAULT_LOCAL_SETTINGS }} ]'
         msg: |
@@ -200,11 +204,11 @@ tasks:
         msg: |
           TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
     cmds:
-      # For some reason xh does not work in su
+      # For some reason xh does not work in su. Download and chown the update file.
       - cmd: |
-          update_url="https://raw.githubusercontent.com/amidaware/tacticalrmm/master/update.sh"
+          xh --body --follow --download --output "{{.TRMM_HOME}}/update-remote.sh" "{{.UPDATE_URL}}"
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
-            xh --body --follow --download --output "${HOME}/update-remote.sh" "${update_url}"
+            chown {{.TRMM_USER}} "{{.TRMM_HOME}}/update-remote.sh"
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
 
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
