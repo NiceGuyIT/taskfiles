@@ -200,10 +200,15 @@ tasks:
         msg: |
           TRMM_USER {{ quote .TRMM_USER }} is empty. Could not determine the tactical os user.
     cmds:
+      # For some reason xh does not work in su
       - cmd: |
+          update_url="https://raw.githubusercontent.com/amidaware/tacticalrmm/master/update.sh"
+          {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
+            xh --body --follow --download --output "${HOME}/update-remote.sh" "${update_url}"
+          {{ if ne .USER .TRMM_USER }}EOT{{ end }}
+
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
             cd $HOME
-            xh --body --follow --download --output update-remote.sh https://raw.githubusercontent.com/amidaware/tacticalrmm/master/update.sh
             # Examine the difference
             diff update-remote.sh update.sh
             # vim -d update-remote.sh update.sh
