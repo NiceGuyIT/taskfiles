@@ -217,4 +217,5 @@ tasks:
             # diff update-remote.sh update.sh
             echo vim -d update-remote.sh update.sh
             echo "./update.sh 2>&1 | tee -a update-$(timestamp).log"
+            echo vim -d /rmm/api/tacticalrmm/app.ini app-v0.15.2.ini
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
