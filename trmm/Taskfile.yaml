@@ -203,7 +203,7 @@ tasks:
       - cmd: |
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
             cd $HOME
-            xh --download --output update-remote.sh https://raw.githubusercontent.com/amidaware/tacticalrmm/master/update.sh
+            xh --body --follow --download --output update-remote.sh https://raw.githubusercontent.com/amidaware/tacticalrmm/master/update.sh
             # Examine the difference
             diff update-remote.sh update.sh
             # vim -d update-remote.sh update.sh
