@@ -214,7 +214,7 @@ tasks:
           {{ if ne .USER .TRMM_USER }}su {{.TRMM_USER}} << 'EOT'{{ end }}
             cd $HOME
             # Examine the difference
-            diff update-remote.sh update.sh
-            # vim -d update-remote.sh update.sh
+            # diff update-remote.sh update.sh
+            echo vim -d update-remote.sh update.sh
             echo "./update.sh 2>&1 | tee -a update-$(timestamp).log"
           {{ if ne .USER .TRMM_USER }}EOT{{ end }}
